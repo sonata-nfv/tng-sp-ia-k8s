@@ -1,0 +1,22 @@
+---
+descriptor_schema: "https://raw.githubusercontent.com/sonata-nfv/tng-schema/master/function-descriptor/vnfd-schema.yml"
+vendor: "eu.5gtango"
+name: "cnf-nginx-vnf"
+version: "0.1"
+author: "Felipe Vicens and Manuel Peuster"
+description: "Our first CNF VNFD for K8s deployment of an Nginx."
+cloudnative_deployment_units:
+  - id: "cdu01"
+    image: "nginx"
+    connection_points:
+      - id: "http"
+        port: 80
+
+connection_points:
+  - id: "external"
+    interface: "ipv4"
+    type: "serviceendpoint"
+    ports:
+      - id: "http"
+        port: 80
+        target_port: cdu01:http
