@@ -71,14 +71,14 @@ class KubernetesWrapperEngine(object):
         #self.create_deployment("default", deployment)
         #self.get_deployment_status("default", "test")
         '''
-        with open(path.join(path.dirname(__file__), "cnf.yaml")) as f:
+        with open(path.join(path.dirname(__file__), "../test/media-aggregator.yaml")) as f:
             deployment = yaml.load(f)
             deployment_id = str(uuid.uuid4())
             deploy = self.deployment_object(deployment_id, deployment)
             pprint(deploy)
             deployment_selector = deploy.spec.template.metadata.labels.get("deployment")
             print (deployment_selector)
-        with open(path.join(path.dirname(__file__), "cnf.yaml")) as f:       
+        with open(path.join(path.dirname(__file__), "../test/media-aggregator.yaml")) as f:       
             deployment = yaml.load(f)
             pprint(deployment)
             service = self.service_object(deployment_id, deployment, deployment_selector)
@@ -278,7 +278,7 @@ class KubernetesWrapperEngine(object):
 
     def service_object(self, DEPLOYMENT_NAME, cnf_yaml, deployment_selector):
         LOG.info("CNFD: " + str(cnf_yaml))
-        ports=[]
+        ports_services=[]
         if cnf_yaml.get("connection_points"):
             for connection_points in cnf_yaml["connection_points"]:
                 LOG.info("CONNECTION_POINTS:" + str(connection_points))
@@ -291,24 +291,17 @@ class KubernetesWrapperEngine(object):
                         if cdu_connection_points.get("id") == cdu_id:
                             for cdu_ports in cdu_connection_points["connection_points"]:
                                 if cdu_name == cdu_ports.get("id"):
-                                    ports.append(client.V1ServicePort(
-                                        name=cdu_name,
-                                        port=port_obj.get("port"),
-                                        target_port=cdu_ports.get("port")
-                                        ))               
-        LOG.info(ports)
+                                    port_service = {}
+                                    port_service["name"] = cdu_name
+                                    port_service["port"] = port_obj.get("port")
+                                    port_service["target_port"] = cdu_ports.get("port")
+                                    ports_services.append(port_service)               
+        LOG.info(ports_services)
         LOG.info("Deployment Selector:" + str(deployment_selector))
         
         # Create the specification of service
         spec = client.V1ServiceSpec(
-            ports=[
-                    {
-                        "name": "http",
-                        "port": 80,
-                        "protocol": "TCP",
-                        "targetPort": 80
-                    }
-                ],
+            ports=ports_services,
             selector={
                 'deployment': deployment_selector
                 },
