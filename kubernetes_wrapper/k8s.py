@@ -76,7 +76,7 @@ class KubernetesWrapper(object):
         self.thrd_pool = pool.ThreadPoolExecutor(max_workers=10)
 
         self.k8s_ledger = {}
-
+        iec = ('Bi', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi', 'Yi')
         base = 'amqp://' + 'guest' + ':' + 'guest'
         broker = os.environ.get("broker_host").split("@")[-1].split("/")[0]
         self.url_base = base + '@' + broker + '/'
@@ -124,6 +124,9 @@ class KubernetesWrapper(object):
          # The topic on which terminate requests are posted.
         self.manoconn.subscribe(self.function_instance_remove, t.CNF_REMOVE)
         LOG.info(t.CNF_REMOVE + "Created")
+         # The topic on which list the cluster resources.
+        self.manoconn.subscribe(self.function_list_resources, t.NODE_LIST)
+        LOG.info(t.NODE_LIST + "Created")        
 
 ##########################
 # K8S Threading management
@@ -286,6 +289,59 @@ class KubernetesWrapper(object):
         self.start_next_task(func_id)
 
         return self.functions[func_id]['schedule']
+
+    def function_list_resources(self, ch, method, properties, payload):
+        """
+        This methods requests the list of cluster resources
+        """
+        # Don't trigger on self created messages
+        if self.name == properties.app_id:
+            return
+
+        LOG.info("CNF list resources request received.")
+
+        # Extract the correlation id
+        corr_id = properties.correlation_id
+
+        vim_id = "8888-22222222-33333333-8888"
+        obj_resource = engine.KubernetesWrapperEngine.resource_object(self, vim_id)
+
+        outg_message = {}
+
+        # { vim_uuid: uuid, vim_city: city, vim_endpoint: null, memory_total: int, memory_allocatable: int, core_total: int }
+
+        outg_message['vim_uuid'] = "8888-22222222-33333333-8888"
+        outg_message['vim_city'] = "Athens"
+        outg_message['vim_domain'] = "null"
+        outg_message['vim_name'] = "k8s"
+        outg_message['vim_endpoint'] = "null"
+        outg_message["core_total"] = 0
+        outg_message["memory_allocatable"] = 0
+        outg_message["memory_total"] = 0
+
+        for cores in obj_resource:
+            outg_message["core_total"] += int(cores["core_total"])
+        for memory_allocatable in obj_resource:
+            mem_a = memory_allocatable["memory_allocatable"]
+            mema = int(mem_a[0:-2])
+            outg_message["memory_allocatable"] += mema
+        for memory_total in obj_resource:
+            mem_t = memory_total["memory_total"]
+            memt = int(mem_t[0:-2])
+            outg_message["memory_total"] += memt
+        
+        payload = yaml.dump(outg_message)
+
+        LOG.info("Reply from Kubernetes" + str(obj_resource))      
+
+        # Contact the IA
+        self.manoconn.call_async(self.IA_deploy_response,
+                                 t.NODE_LIST,
+                                 payload,
+                                 correlation_id=corr_id)
+        LOG.info("Replayed resources to MANO")
+
+
 
     def function_instance_remove(self, ch, method, properties, payload):
         """

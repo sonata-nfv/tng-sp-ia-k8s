@@ -35,7 +35,7 @@ from urllib.parse import urlparse
 # List of topics that are used by the K8S Wrapper for its rabbitMQ communication
 
 # With the FLM
-NODE_LIST = "infrastructure.k8s.management.compute.list"
+NODE_LIST = "infrastructure.k8s.compute.list"
 
 # With infrastructure adaptor
 CNF_DEPLOY = 'infrastructure.k8s.function.deploy'
