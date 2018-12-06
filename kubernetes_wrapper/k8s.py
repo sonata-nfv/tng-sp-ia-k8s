@@ -336,7 +336,7 @@ class KubernetesWrapper(object):
         LOG.info("Reply from Kubernetes: " + str(obj_resource))      
 
         # Contact the IA
-        self.manoconn.call_async(self.IA_deploy_response,
+        self.manoconn.notify(self.IA_deploy_response,
                                  t.NODE_LIST,
                                  payload,
                                  correlation_id=corr_id)
