@@ -330,7 +330,7 @@ class KubernetesWrapper(object):
             memt = int(mem_t[0:-2])
             vim["memory_total"] += memt
         
-        outg_message('resources': [vim])
+        outg_message = {'resources': [vim]}
         payload = yaml.dump(outg_message)
 
         LOG.info("Reply from Kubernetes: " + str(obj_resource))      
