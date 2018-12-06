@@ -306,40 +306,41 @@ class KubernetesWrapper(object):
         vim_id = "8888-22222222-33333333-8888"
         obj_resource = engine.KubernetesWrapperEngine.resource_object(self, vim_id)
 
-        outg_message = {}
+        vim = {}
 
         # { vim_uuid: uuid, vim_city: city, vim_endpoint: null, memory_total: int, memory_allocatable: int, core_total: int }
 
-        outg_message['vim_uuid'] = "8888-22222222-33333333-8888"
-        outg_message['vim_city'] = "Athens"
-        outg_message['vim_domain'] = "null"
-        outg_message['vim_name'] = "k8s"
-        outg_message['vim_endpoint'] = "null"
-        outg_message["core_total"] = 0
-        outg_message["memory_allocatable"] = 0
-        outg_message["memory_total"] = 0
+        vim['vim_uuid'] = "8888-22222222-33333333-8888"
+        vim['vim_city'] = "Athens"
+        vim['vim_domain'] = "null"
+        vim['vim_name'] = "k8s"
+        vim['vim_endpoint'] = "null"
+        vim["core_total"] = 0
+        vim["memory_allocatable"] = 0
+        vim["memory_total"] = 0
 
         for cores in obj_resource:
-            outg_message["core_total"] += int(cores["core_total"])
+            vim["core_total"] += int(cores["core_total"])
         for memory_allocatable in obj_resource:
             mem_a = memory_allocatable["memory_allocatable"]
             mema = int(mem_a[0:-2])
-            outg_message["memory_allocatable"] += mema
+            vim["memory_allocatable"] += mema
         for memory_total in obj_resource:
             mem_t = memory_total["memory_total"]
             memt = int(mem_t[0:-2])
-            outg_message["memory_total"] += memt
+            vim["memory_total"] += memt
         
+        outg_message('resources': [vim])
         payload = yaml.dump(outg_message)
 
-        LOG.info("Reply from Kubernetes" + str(obj_resource))      
+        LOG.info("Reply from Kubernetes: " + str(obj_resource))      
 
         # Contact the IA
         self.manoconn.call_async(self.IA_deploy_response,
                                  t.NODE_LIST,
                                  payload,
                                  correlation_id=corr_id)
-        LOG.info("Replayed resources to MANO")
+        LOG.info("Replayed resources to MANO: " +  str(payload))
 
 
 
