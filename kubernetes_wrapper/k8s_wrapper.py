@@ -337,4 +337,21 @@ class KubernetesWrapperEngine(object):
 
         return resources
 
+    def node_metrics_object(self, vim_id):
+        api = client.ApiClient()
+        response = api.call_api('/apis/metrics.k8s.io/v1beta1/nodes', 'GET', _return_http_data_only=True, response_type=str)
+        jsonify_response = response.replace("'","\"")
+        json_response = json.loads(jsonify_response)
+        cpu_used = 0
+        memory_used = 0        
+        if json_response.get("items"):
+            for item in json_response["items"]:
+                if item.get("usage"):
+                    cpu = item["usage"]["cpu"]
+                    memory = item["usage"]["memory"]
+                    cpu_used += int(cpu[0:-1])
+                    memory_used += int(memory[0:-2])   
+        LOG.info("CPU Used: " + str(cpu_used) + "Memory Used:" + str(memory_used))
+        return (cpu_used, memory_used)
+
 test = KubernetesWrapperEngine()

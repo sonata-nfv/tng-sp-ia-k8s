@@ -305,6 +305,7 @@ class KubernetesWrapper(object):
 
         vim_id = "8888-22222222-33333333-8888"
         obj_resource = engine.KubernetesWrapperEngine.resource_object(self, vim_id)
+        cpu_used, memory_used = engine.KubernetesWrapperEngine.node_metrics_object(self, vim_id)
 
         vim = {}
 
@@ -318,6 +319,8 @@ class KubernetesWrapper(object):
         vim["core_total"] = 0
         vim["memory_allocatable"] = 0
         vim["memory_total"] = 0
+        vim["cpu_used"] = 0
+        vim["memory_used"] = 0
 
         for cores in obj_resource:
             vim["core_total"] += int(cores["core_total"])
@@ -329,8 +332,14 @@ class KubernetesWrapper(object):
             mem_t = memory_total["memory_total"]
             memt = int(mem_t[0:-2])
             vim["memory_total"] += memt
+
+        if cpu_used:
+            vim["cpu_used"] = cpu_used
+        if memory_used:
+            vim["memory_used"] = memory_used
         
         outg_message = {'resources': [vim]}
+        LOG.info("Full msg: " + str(outg_message))
         payload = yaml.safe_dump(outg_message, allow_unicode=True, default_flow_style=False)
 
         LOG.info("Reply from Kubernetes: " + str(obj_resource))      
