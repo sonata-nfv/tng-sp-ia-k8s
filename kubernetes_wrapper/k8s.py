@@ -336,7 +336,7 @@ class KubernetesWrapper(object):
         LOG.info("Reply from Kubernetes: " + str(obj_resource))      
 
         # Contact the IA
-        self.manoconn.notify(t.NODE_LIST,
+        self.manoconn.notify(properties.reply_to,
                              payload,
                              correlation_id=corr_id)
         LOG.info("Replayed resources to MANO: " +  str(payload))
