@@ -41,6 +41,7 @@ import yaml, json
 import uuid
 from kubernetes.client.rest import ApiException
 from pprint import pprint
+from copy import deepcopy
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger('pika').setLevel(logging.ERROR)
@@ -314,5 +315,43 @@ class KubernetesWrapperEngine(object):
             spec=spec)
         LOG.info(service)
         return service
+
+    def resource_object(self, vim_id):
+        api = client.CoreV1Api()
+
+        nodes = api.list_node().to_dict()
+        # LOG.info(nodes)
+        resources = []
+        
+        if nodes.get("items"):
+            for node in nodes["items"]:
+                resource = {}
+                resource["node_name"] = node["metadata"].get("name")
+                resource["core_total"] = node["status"]["capacity"].get("cpu")
+                resource["memory_total"] = node["status"]["capacity"].get("memory")
+                resource["memory_allocatable"] = node["status"]["allocatable"].get("memory")
+                LOG.info(resource)
+                resources.append(resource)
+        # Response:
+        # { resources: [{ node-name: k8s, core_total: 16, memory_total: 32724804, memory_allocatable: 32724804}] }
+
+        return resources
+
+    def node_metrics_object(self, vim_id):
+        api = client.ApiClient()
+        response = api.call_api('/apis/metrics.k8s.io/v1beta1/nodes', 'GET', _return_http_data_only=True, response_type=str)
+        jsonify_response = response.replace("'","\"")
+        json_response = json.loads(jsonify_response)
+        cpu_used = 0
+        memory_used = 0        
+        if json_response.get("items"):
+            for item in json_response["items"]:
+                if item.get("usage"):
+                    cpu = item["usage"]["cpu"]
+                    memory = item["usage"]["memory"]
+                    cpu_used += int(cpu[0:-1])
+                    memory_used += int(memory[0:-2])   
+        LOG.info("CPU Used: " + str(cpu_used) + "Memory Used:" + str(memory_used))
+        return (cpu_used, memory_used)
 
 test = KubernetesWrapperEngine()
