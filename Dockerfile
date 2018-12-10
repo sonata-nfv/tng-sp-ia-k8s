@@ -50,7 +50,7 @@ ENV POSTGRES_PASSWORD sonatatest
 ENV DATABASE_HOST son-postgres
 ENV DATABASE_PORT 5432
 
-RUN apt-get update && apt-get install -y glpk-utils && apt-get install -y python3-pip libffi-dev libssl-dev
+RUN apt-get update && apt-get install -y glpk-utils && apt-get install -y python3-pip libffi-dev libssl-dev libpq-dev
 RUN apt-get install -y git
 RUN pip install git+git://github.com/eandersson/amqpstorm.git@feature/reuse_channels
 
