@@ -37,6 +37,7 @@ import json
 import threading
 import sys
 import concurrent.futures as pool
+import psycopg2
 
 from kubernetes_wrapper import messaging as messaging
 from kubernetes_wrapper import k8s_helpers as tools
@@ -103,6 +104,31 @@ class KubernetesWrapper(object):
         if start_running:
             LOG.info("Wrapper running...")
             self.run()
+
+    def write_service_prep(self, instance_uuid, vim_uuid):
+        """
+        Write in database the preparation of the service before instantiation
+        This data will be used by ia-nbi to match service vim
+        """
+
+        try:
+            connection = psycopg2.connect(user = os.getenv("POSTGRES_USER") or "sonata",
+                                          password = os.getenv("POSTGRES_PASSWORD") or "sonatatest",
+                                          host = os.getenv("DATABASE_HOST") or "son-postgres",
+                                          port = os.getenv("DATABASE_PORT") or "5432",
+                                          database = "vimregistry")
+            sql = "INSERT INTO service_instances(instance_uuid, vim_instance_uuid, \
+                   vim_instance_name, vim_uuid) VALUES({},"","",{});".format(instance_uuid,vim_uuid)
+            cursor = connection.cursor()
+            cursor.execute(sql)
+        except (Exception, psycopg2.Error) as error :
+            print ("Error while connecting to PostgreSQL", error)
+        finally:
+            #closing database connection.
+                if(connection):
+                    cursor.close()
+                    connection.close()
+                    print("PostgreSQL connection is closed")
 
     def run(self):
         """
@@ -261,11 +287,15 @@ class KubernetesWrapper(object):
             return 
 
         # Extract the correlation id
-        corr_id = properties.correlation_id        
+        corr_id = properties.correlation_id
+        payload_dict = yaml.load(payload)
+        instance_uuid = payload_dict.vim_list.get("instance_id")
+        # Write info to database
+        for vim_list in payload_dict:
+            vim_uuid = vim_list.get("uuid")
+            self.write_service_prep(instance_uuid, vim_uuid)
 
-        payload = '{ "request_status": "COMPLETE", "message": "null" }'
-
-        #payload = yaml.safe_dump(payload_string, allow_unicode=True, default_flow_style=False)
+        payload = '{ "request_status": "COMPLETE", "message": "" }'
 
         # Contact the IA
         self.manoconn.notify(properties.reply_to,

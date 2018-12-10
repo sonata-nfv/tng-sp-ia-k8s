@@ -25,7 +25,6 @@
 # acknowledge the contributions of their colleagues of the 5GTANGO
 # partner consortium (www.5gtango.eu).
 
-
 FROM python:3.4-slim
 LABEL organization=5GTANGO
 
@@ -45,8 +44,11 @@ ENV vnfr_collection vnfr/vnf-instances
 # Monitoring information
 ENV monitoring_path http://son-monitor-manager:8000/api/v1
 
-# TODO: Database information
 # ENV Postgres
+ENV POSTGRES_USER sonata
+ENV POSTGRES_PASSWORD sonatatest
+ENV DATABASE_HOST son-postgres
+ENV DATABASE_PORT 5432
 
 RUN apt-get update && apt-get install -y glpk-utils && apt-get install -y python3-pip libffi-dev libssl-dev
 RUN apt-get install -y git
