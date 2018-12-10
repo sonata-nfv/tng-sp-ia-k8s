@@ -263,9 +263,9 @@ class KubernetesWrapper(object):
         # Extract the correlation id
         corr_id = properties.correlation_id        
 
-        payload_string = "{ request_status: \"COMPLETE\", message: \"null\"}"
+        payload = '{ "request_status": "COMPLETE", "message": "null" }'
 
-        payload = yaml.safe_dump(payload_string, allow_unicode=True, default_flow_style=False)
+        #payload = yaml.safe_dump(payload_string, allow_unicode=True, default_flow_style=False)
 
         # Contact the IA
         self.manoconn.notify(properties.reply_to,
