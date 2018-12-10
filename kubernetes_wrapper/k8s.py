@@ -117,18 +117,29 @@ class KubernetesWrapper(object):
                                           host = os.getenv("DATABASE_HOST") or "son-postgres",
                                           port = os.getenv("DATABASE_PORT") or "5432",
                                           database = "vimregistry")
-            sql = "INSERT INTO service_instances(instance_uuid, vim_instance_uuid, \
-                   vim_instance_name, vim_uuid) VALUES({},"","",{});".format(instance_uuid,vim_uuid)
+
             cursor = connection.cursor()
-            cursor.execute(sql)
-        except (Exception, psycopg2.Error) as error :
-            print ("Error while connecting to PostgreSQL", error)
+            # Query
+            cursor.execute("""
+            INSERT INTO service_instances (instance_uuid, vim_instance_uuid, vim_instance_name, vim_uuid)
+            VALUES (%s, %s, %s, %s);
+            """, 
+            (instance_uuid, "1234", "1234", vim_uuid))
+            
+            # Saving the results
+            connection.commit()
+
+        except (Exception, psycopg2.Error) as error:
+            if connection:
+                connection.rollback()
+            LOG.error("Error while connecting to PostgreSQL " + str(error))
+
         finally:
             #closing database connection.
-                if(connection):
-                    cursor.close()
-                    connection.close()
-                    print("PostgreSQL connection is closed")
+            if connection:
+                cursor.close()
+                connection.close()
+                LOG.info("PostgreSQL connection is closed")
 
     def run(self):
         """
@@ -289,13 +300,15 @@ class KubernetesWrapper(object):
         # Extract the correlation id
         corr_id = properties.correlation_id
         payload_dict = yaml.load(payload)
-        instance_uuid = payload_dict.vim_list.get("instance_id")
+        LOG.info("payload_dict: " + str(payload_dict))
+        instance_uuid = payload_dict.get("instance_id")
         # Write info to database
-        for vim_list in payload_dict:
+        for vim_list in payload_dict["vim_list"]:
+            LOG.info("vim_list: " + str(vim_list))
             vim_uuid = vim_list.get("uuid")
             self.write_service_prep(instance_uuid, vim_uuid)
 
-        payload = '{ "request_status": "COMPLETE", "message": "" }'
+        payload = '{"request_status": "COMPLETE", "message": ""}'
 
         # Contact the IA
         self.manoconn.notify(properties.reply_to,
@@ -441,12 +454,12 @@ class KubernetesWrapper(object):
             send_error_response(error, None)
             return
 
-        if 'cnf_id' not in message.keys():
-            error = 'cnf_uuid key not provided'
+        if 'instance_uuid' not in message.keys():
+            error = 'instance_uuid key not provided'
             send_error_response(error, None)
             return
 
-        func_id = message['cnf_id']
+        func_id = message['instance_uuid']
 
         if 'serv_id' not in message.keys():
             error = 'serv_id key not provided'
