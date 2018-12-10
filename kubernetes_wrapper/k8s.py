@@ -123,6 +123,9 @@ class KubernetesWrapper(object):
          # The topic on which terminate requests are posted.
         self.manoconn.subscribe(self.function_instance_remove, t.CNF_REMOVE)
         LOG.info(t.CNF_REMOVE + "Created")
+        # The topic on service preparation requests are posted.
+        self.manoconn.subscribe(self.function_instance_remove, t.CNF_PREPARE)
+        LOG.info(t.CNF_PREPATE + "Created")
          # The topic on which list the cluster resources.
         self.manoconn.subscribe(self.function_list_resources, t.NODE_LIST)
         LOG.info(t.NODE_LIST + "Created")        
