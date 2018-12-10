@@ -76,7 +76,6 @@ class KubernetesWrapper(object):
         self.thrd_pool = pool.ThreadPoolExecutor(max_workers=10)
 
         self.k8s_ledger = {}
-        iec = ('Bi', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi', 'Yi')
         base = 'amqp://' + 'guest' + ':' + 'guest'
         broker = os.environ.get("broker_host").split("@")[-1].split("/")[0]
         self.url_base = base + '@' + broker + '/'
@@ -252,6 +251,25 @@ class KubernetesWrapper(object):
         self.manoconn.notify(topic,
                              yaml.dump(message),
                              correlation_id=corr_id)
+
+    def prepare_service(self, ch, method, properties, payload):
+        # Don't trigger on self created messages
+        if self.name == properties.app_id:
+            return 
+
+        # Extract the correlation id
+        corr_id = properties.correlation_id        
+
+        payload_string = "{ request_status: \"COMPLETE\", message: \"null\"}"
+
+        payload = yaml.safe_dump(payload_string, allow_unicode=True, default_flow_style=False)
+
+        # Contact the IA
+        self.manoconn.notify(properties.reply_to,
+                             payload,
+                             correlation_id=corr_id)
+        LOG.info("Replayed preparation message to MANO: " +  str(payload))
+
 
     def function_instance_create(self, ch, method, properties, payload):
         """
