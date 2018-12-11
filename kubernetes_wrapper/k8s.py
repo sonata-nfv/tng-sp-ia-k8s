@@ -124,7 +124,7 @@ class KubernetesWrapper(object):
             INSERT INTO service_instances (instance_uuid, vim_instance_uuid, vim_instance_name, vim_uuid)
             VALUES (%s, %s, %s, %s);
             """, 
-            (instance_uuid, "1234", "1234", vim_uuid))
+            (instance_uuid, "1", "1", vim_uuid))
             
             # Saving the results
             connection.commit()
@@ -156,16 +156,16 @@ class KubernetesWrapper(object):
 
         # The topic on which deploy requests are posted.
         self.manoconn.subscribe(self.function_instance_create, t.CNF_DEPLOY)
-        LOG.info(t.CNF_DEPLOY + "Created")
-         # The topic on which terminate requests are posted.
+        LOG.info(t.CNF_DEPLOY + " Created")
+        # The topic on which terminate requests are posted.
         self.manoconn.subscribe(self.function_instance_remove, t.CNF_REMOVE)
-        LOG.info(t.CNF_REMOVE + "Created")
+        LOG.info(t.CNF_REMOVE + " Created")
         # The topic on service preparation requests are posted.
         self.manoconn.subscribe(self.prepare_service, t.CNF_PREPARE)
-        LOG.info(t.CNF_PREPARE + "Created")
+        LOG.info(t.CNF_PREPARE + " Created")
          # The topic on which list the cluster resources.
         self.manoconn.subscribe(self.function_list_resources, t.NODE_LIST)
-        LOG.info(t.NODE_LIST + "Created")        
+        LOG.info(t.NODE_LIST + " Created")        
 
 ##########################
 # K8S Threading management
@@ -308,7 +308,7 @@ class KubernetesWrapper(object):
             vim_uuid = vim_list.get("uuid")
             self.write_service_prep(instance_uuid, vim_uuid)
 
-        payload = '{"request_status": "COMPLETE", "message": ""}'
+        payload = '{"request_status": "COMPLETED", "message": ""}'
 
         # Contact the IA
         self.manoconn.notify(properties.reply_to,
@@ -454,12 +454,12 @@ class KubernetesWrapper(object):
             send_error_response(error, None)
             return
 
-        if 'instance_uuid' not in message.keys():
-            error = 'instance_uuid key not provided'
+        if 'cnf_id' not in message.keys():
+            error = 'cnf_uuid key not provided'
             send_error_response(error, None)
             return
 
-        func_id = message['instance_uuid']
+        func_id = message['cnf_id']
 
         if 'serv_id' not in message.keys():
             error = 'serv_id key not provided'

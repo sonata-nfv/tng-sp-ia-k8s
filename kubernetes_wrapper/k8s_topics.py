@@ -39,7 +39,7 @@ NODE_LIST = "infrastructure.k8s.management.compute.list"
 
 # With infrastructure adaptor
 CNF_DEPLOY = 'infrastructure.k8s.function.deploy'
-# CNF_REMOVE = 'infrastructure.k8s.service.remove' # Disable this for now
+CNF_REMOVE = 'infrastructure.k8s.function.remove'
 CNF_PREPARE = 'infrastructure.k8s.service.prepare'
 
 # Catalogue urls
