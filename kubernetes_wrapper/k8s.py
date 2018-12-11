@@ -37,6 +37,7 @@ import json
 import threading
 import sys
 import concurrent.futures as pool
+import psycopg2
 
 from kubernetes_wrapper import messaging as messaging
 from kubernetes_wrapper import k8s_helpers as tools
@@ -76,7 +77,6 @@ class KubernetesWrapper(object):
         self.thrd_pool = pool.ThreadPoolExecutor(max_workers=10)
 
         self.k8s_ledger = {}
-        iec = ('Bi', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi', 'Yi')
         base = 'amqp://' + 'guest' + ':' + 'guest'
         broker = os.environ.get("broker_host").split("@")[-1].split("/")[0]
         self.url_base = base + '@' + broker + '/'
@@ -105,6 +105,42 @@ class KubernetesWrapper(object):
             LOG.info("Wrapper running...")
             self.run()
 
+    def write_service_prep(self, instance_uuid, vim_uuid):
+        """
+        Write in database the preparation of the service before instantiation
+        This data will be used by ia-nbi to match service vim
+        """
+
+        try:
+            connection = psycopg2.connect(user = os.getenv("POSTGRES_USER") or "sonata",
+                                          password = os.getenv("POSTGRES_PASSWORD") or "sonatatest",
+                                          host = os.getenv("DATABASE_HOST") or "son-postgres",
+                                          port = os.getenv("DATABASE_PORT") or "5432",
+                                          database = "vimregistry")
+
+            cursor = connection.cursor()
+            # Query
+            cursor.execute("""
+            INSERT INTO service_instances (instance_uuid, vim_instance_uuid, vim_instance_name, vim_uuid)
+            VALUES (%s, %s, %s, %s);
+            """, 
+            (instance_uuid, "1", "1", vim_uuid))
+            
+            # Saving the results
+            connection.commit()
+
+        except (Exception, psycopg2.Error) as error:
+            if connection:
+                connection.rollback()
+            LOG.error("Error while connecting to PostgreSQL " + str(error))
+
+        finally:
+            #closing database connection.
+            if connection:
+                cursor.close()
+                connection.close()
+                LOG.info("PostgreSQL connection is closed")
+
     def run(self):
         """
         To be overwritten by subclass
@@ -120,13 +156,16 @@ class KubernetesWrapper(object):
 
         # The topic on which deploy requests are posted.
         self.manoconn.subscribe(self.function_instance_create, t.CNF_DEPLOY)
-        LOG.info(t.CNF_DEPLOY + "Created")
-         # The topic on which terminate requests are posted.
+        LOG.info(t.CNF_DEPLOY + " Created")
+        # The topic on which terminate requests are posted.
         self.manoconn.subscribe(self.function_instance_remove, t.CNF_REMOVE)
-        LOG.info(t.CNF_REMOVE + "Created")
+        LOG.info(t.CNF_REMOVE + " Created")
+        # The topic on service preparation requests are posted.
+        self.manoconn.subscribe(self.prepare_service, t.CNF_PREPARE)
+        LOG.info(t.CNF_PREPARE + " Created")
          # The topic on which list the cluster resources.
         self.manoconn.subscribe(self.function_list_resources, t.NODE_LIST)
-        LOG.info(t.NODE_LIST + "Created")        
+        LOG.info(t.NODE_LIST + " Created")        
 
 ##########################
 # K8S Threading management
@@ -252,6 +291,31 @@ class KubernetesWrapper(object):
         self.manoconn.notify(topic,
                              yaml.dump(message),
                              correlation_id=corr_id)
+
+    def prepare_service(self, ch, method, properties, payload):
+        # Don't trigger on self created messages
+        if self.name == properties.app_id:
+            return 
+
+        # Extract the correlation id
+        corr_id = properties.correlation_id
+        payload_dict = yaml.load(payload)
+        LOG.info("payload_dict: " + str(payload_dict))
+        instance_uuid = payload_dict.get("instance_id")
+        # Write info to database
+        for vim_list in payload_dict["vim_list"]:
+            LOG.info("vim_list: " + str(vim_list))
+            vim_uuid = vim_list.get("uuid")
+            self.write_service_prep(instance_uuid, vim_uuid)
+
+        payload = '{"request_status": "COMPLETED", "message": ""}'
+
+        # Contact the IA
+        self.manoconn.notify(properties.reply_to,
+                             payload,
+                             correlation_id=corr_id)
+        LOG.info("Replayed preparation message to MANO: " +  str(payload))
+
 
     def function_instance_create(self, ch, method, properties, payload):
         """
