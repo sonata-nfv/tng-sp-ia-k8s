@@ -242,6 +242,7 @@ class KubernetesWrapperEngine(object):
     
     def deployment_object(self, DEPLOYMENT_NAME, cnf_yaml):
         LOG.info("CNFD: " + str(cnf_yaml))
+        port_list = []
         if "cloudnative_deployment_units" in cnf_yaml:
             cdu = cnf_yaml.get('cloudnative_deployment_units')
             for cdu_obj in cdu:
@@ -250,9 +251,11 @@ class KubernetesWrapperEngine(object):
                 cdu_conex = cdu_obj.get('connection_points')
                 container_name = cdu_id
                 image = cdu_image
-                port = cdu_conex[0].get('port')
-                port_name = cdu_conex[0].get('id')
-                cdu_name = cdu_obj.get('id').split("-")[0]
+                if cdu_conex:
+                    for po in cdu_conex:
+                        port = po.get('port')
+                        port_name = po.get('id')
+                        port_list.append(client.V1ContainerPort(container_port=port, name=port_name))
         else:
             pass
 
@@ -262,7 +265,7 @@ class KubernetesWrapperEngine(object):
         container = client.V1Container(
             name=container_name,
             image=image,
-            ports=[client.V1ContainerPort(container_port=port, name=port_name )])
+            ports=port_list)
         # Create and configurate a spec section
         template = client.V1PodTemplateSpec(
             metadata=client.V1ObjectMeta(labels={'deployment': container_name}),
