@@ -544,25 +544,35 @@ class KubernetesWrapper(object):
         """
         function = self.functions[func_id]
         LOG.info("function: " + str(self.functions))
-        obj_deployment = engine.KubernetesWrapperEngine.deployment_object(self, function['instance_uuid'], function['vnfd'])
+        obj_deployment = engine.KubernetesWrapperEngine.deployment_object(self, function['vnfd']['instance_uuid'], function['vnfd'])
         LOG.info("Reply from Kubernetes" + str(obj_deployment))
 
         deployment_selector = obj_deployment.spec.template.metadata.labels.get("deployment")
         LOG.info("Deployment Selector: " + str(deployment_selector))
 
         LOG.info("function[vnfd]:" + str(function['vnfd']))
-        obj_service=engine.KubernetesWrapperEngine.service_object(self, function['instance_uuid'], function['vnfd'], deployment_selector)
+        obj_service = engine.KubernetesWrapperEngine.service_object(self, function['vnfd']['instance_uuid'], function['vnfd'], deployment_selector)
         LOG.info("Service Object:" + str(obj_service))
         LOG.info("Creating a Deployment")
-        engine.KubernetesWrapperEngine.create_deployment(self, obj_deployment, "default")
+        deployment = engine.KubernetesWrapperEngine.create_deployment(self, obj_deployment, "default")
+
+        LOG.debug("SERVICE DEPLOYMENT REPLY: " + str(deployment).replace(" ", ""))
+
         LOG.info("Creating a Service")
-        engine.KubernetesWrapperEngine.create_service(self, obj_service, "default")
+        service = engine.KubernetesWrapperEngine.create_service(self, obj_service, "default")
+        
+        LOG.debug("SERVICE CREATION REPLY: " + str(service))
 
         outg_message = {}
         outg_message['vnfd'] = function['vnfd']
         outg_message['vnfd']['instance_uuid'] = function['vnfd']['instance_uuid']
-        outg_message['vim_uuid'] = function['vim_uuid']
+        outg_message['vimUuid'] = function['vim_uuid']
         outg_message['service_instance_id'] = function['service_instance_id']
+        outg_message['instanceName'] = function['vnfd']['name']
+        outg_message['ip_mapping'] = [] # TODO: Empty for now. we should add here the lb IP and internal IP maybe a port as well
+        outg_message['request_status'] = "COMPLETED"
+        outg_message['vnfr'] = [] # TODO: Empty for now. we should add here the lb IP and internal IP maybe a port as well
+        outg_message['message'] = ""
 
         payload = yaml.dump(outg_message)
 
@@ -571,22 +581,15 @@ class KubernetesWrapper(object):
         msg = ": IA contacted for function deployment."
         LOG.info("Function " + func_id + msg)
         LOG.debug("Payload of request: " + payload)
+
         # Contact the IA
         self.manoconn.notify(t.CNF_DEPLOY_RESPONSE,
                              payload,
                              correlation_id=corr_id)
-        """
-        self.manoconn.call_async(self.IA_deploy_response,
-                                 t.CNF_DEPLOY,
-                                 payload,
-                                 correlation_id=corr_id)
-        """
+
         LOG.info("CNF WAS DEPLOYED CORRECTLY")
         # Pause the chain of tasks to wait for response
         self.functions[func_id]['pause_chain'] = True
-
-
-
 
     def remove_vnf(self, func_id):
         """
