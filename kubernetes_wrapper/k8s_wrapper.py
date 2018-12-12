@@ -47,7 +47,7 @@ logging.basicConfig(level=logging.INFO)
 logging.getLogger('pika').setLevel(logging.ERROR)
 LOG = logging.getLogger("k8s-wrapper:k8s-wrapper")
 LOG.setLevel(logging.DEBUG)
-MAX_DEPLOYMENT_TIME = 5
+MAX_DEPLOYMENT_TIME = 60
 
 class KubernetesWrapperEngine(object):
 
@@ -150,7 +150,7 @@ class KubernetesWrapperEngine(object):
                 reply['message'] = e
                 reply['instanceName'] = str(resp.metadata.name)
                 reply['instanceVimUuid'] = "unknown"
-                reply['vimUuid'] = "unknown" 
+                reply['vimUuid'] = "unknown"
                 reply['request_status'] = "ERROR"
                 reply['ip_mapping'] = None
                 reply['vnfr'] = None
@@ -248,19 +248,21 @@ class KubernetesWrapperEngine(object):
                 cdu_id = cdu_obj.get('id')
                 cdu_image = cdu_obj.get('image')
                 cdu_conex = cdu_obj.get('connection_points')
-                container_name = cdu_id + "-" + DEPLOYMENT_NAME
+                container_name = cdu_id
                 image = cdu_image
                 port = cdu_conex[0].get('port')
+                port_name = cdu_conex[0].get('id')
+                cdu_name = cdu_obj.get('id').split("-")[0]
         else:
             pass
 
-        LOG.info("Result: " + container_name, image, port)
+        LOG.info("Result: " + str(container_name), str(image), str(port))
         
         # Configureate Pod template container
         container = client.V1Container(
             name=container_name,
             image=image,
-            ports=[client.V1ContainerPort(container_port=80)])
+            ports=[client.V1ContainerPort(container_port=port, name=port_name )])
         # Create and configurate a spec section
         template = client.V1PodTemplateSpec(
             metadata=client.V1ObjectMeta(labels={'deployment': container_name}),
@@ -283,22 +285,34 @@ class KubernetesWrapperEngine(object):
         if cnf_yaml.get("connection_points"):
             for connection_points in cnf_yaml["connection_points"]:
                 LOG.info("CONNECTION_POINTS:" + str(connection_points))
-                for port_obj in connection_points.get("ports"):
-                    LOG.info("PORT_OBJ" + str(port_obj))
-                    for cdu_connection_points in cnf_yaml["cloudnative_deployment_units"]:
-                        cdu_id,cdu_name = port_obj.get("target_port").split(":")
-                        LOG.info(cdu_id, port_obj.get("port"), port_obj.get("id"))
-                        LOG.info("CDU_PORT" + str(cdu_connection_points))
-                        if cdu_connection_points.get("id") == cdu_id:
-                            for cdu_ports in cdu_connection_points["connection_points"]:
-                                if cdu_name == cdu_ports.get("id"):
-                                    port_service = {}
-                                    port_service["name"] = cdu_name
-                                    port_service["port"] = port_obj.get("port")
-                                    port_service["target_port"] = cdu_ports.get("port")
-                                    ports_services.append(port_service)               
-        LOG.info(ports_services)
-        LOG.info("Deployment Selector:" + str(deployment_selector))
+                port_id = connection_points["id"]
+                port_number = connection_points["port"]
+                LOG.info("port_id: " + str(port_id) + " port_number: " + str(port_number))
+                if cnf_yaml.get("virtual_links"):
+                    for vl in cnf_yaml["virtual_links"]:
+                        vl_cp = vl["connection_points_reference"]
+                        LOG.info("VLS_CP: " + str(vl_cp))
+                        if port_id in vl_cp:
+                            LOG.info("Found cp in vl_cp")
+                            for cdu in cnf_yaml["cloudnative_deployment_units"]:
+                                LOG.info("loop cdus")
+                                LOG.debug("vl_cp: " + str(vl_cp))
+                                for cpr in vl_cp:
+                                    LOG.info("cpr: " + str(cpr))
+                                    if ":" in cpr:
+                                        cpr_cdu = cpr.split(":")[0]
+                                        cpr_cpid = cpr.split(":")[1]
+                                        LOG.info("Comparison cpr_cdu == cdu[id]:" + str(cpr_cdu) + " " + str(cdu["id"].split("-")[0]))
+                                        if cpr_cdu == cdu["id"].split("-")[0]:
+                                            for cdu_cp in cdu["connection_points"]:
+                                                if cpr_cpid == cdu_cp["id"]:
+                                                        port_service = {}
+                                                        port_service["name"] = port_id
+                                                        port_service["port"] = port_number
+                                                        port_service["target_port"] = cdu_cp["port"]
+                                                        ports_services.append(port_service)               
+        LOG.info("Port_Services: " + str(ports_services))
+        LOG.info("Deployment Selector:" + str(deployment_selector).replace("\n", ""))
         
         # Create the specification of service
         spec = client.V1ServiceSpec(

@@ -333,7 +333,7 @@ class KubernetesWrapper(object):
         # Extract the correlation id
         corr_id = properties.correlation_id
 
-        func_id = message['id']
+        func_id = message['vnfd']['uuid']    # TODO: Check if this is the correct uuid
 
         # Add the function to the ledger
         self.add_function_to_ledger(message, corr_id, func_id, t.CNF_DEPLOY)
@@ -543,15 +543,15 @@ class KubernetesWrapper(object):
         This methods requests the deployment of a cnf
         """
         function = self.functions[func_id]
-        obj_deployment = engine.KubernetesWrapperEngine.deployment_object(self, func_id, function['vnfd'])
-
-        LOG.info("Reply from Kubernetes" + str(obj_deployment))      
+        LOG.info("function: " + str(self.functions))
+        obj_deployment = engine.KubernetesWrapperEngine.deployment_object(self, function['instance_uuid'], function['vnfd'])
+        LOG.info("Reply from Kubernetes" + str(obj_deployment))
 
         deployment_selector = obj_deployment.spec.template.metadata.labels.get("deployment")
         LOG.info("Deployment Selector: " + str(deployment_selector))
 
         LOG.info("function[vnfd]:" + str(function['vnfd']))
-        obj_service=engine.KubernetesWrapperEngine.service_object(self, func_id, function['vnfd'], deployment_selector)
+        obj_service=engine.KubernetesWrapperEngine.service_object(self, function['instance_uuid'], function['vnfd'], deployment_selector)
         LOG.info("Service Object:" + str(obj_service))
         LOG.info("Creating a Deployment")
         engine.KubernetesWrapperEngine.create_deployment(self, obj_deployment, "default")
@@ -560,26 +560,33 @@ class KubernetesWrapper(object):
 
         outg_message = {}
         outg_message['vnfd'] = function['vnfd']
-        outg_message['vnfd']['instance_uuid'] = function['id']
+        outg_message['vnfd']['instance_uuid'] = function['vnfd']['instance_uuid']
         outg_message['vim_uuid'] = function['vim_uuid']
         outg_message['service_instance_id'] = function['service_instance_id']
 
         payload = yaml.dump(outg_message)
 
-        corr_id = str(uuid.uuid4())
-        self.functions[func_id]['act_corr_id'] = corr_id
+        corr_id = self.functions[func_id]['orig_corr_id']
 
         msg = ": IA contacted for function deployment."
         LOG.info("Function " + func_id + msg)
         LOG.debug("Payload of request: " + payload)
         # Contact the IA
+        self.manoconn.notify(t.CNF_DEPLOY_RESPONSE,
+                             payload,
+                             correlation_id=corr_id)
+        """
         self.manoconn.call_async(self.IA_deploy_response,
                                  t.CNF_DEPLOY,
                                  payload,
                                  correlation_id=corr_id)
+        """
         LOG.info("CNF WAS DEPLOYED CORRECTLY")
         # Pause the chain of tasks to wait for response
         self.functions[func_id]['pause_chain'] = True
+
+
+
 
     def remove_vnf(self, func_id):
         """
