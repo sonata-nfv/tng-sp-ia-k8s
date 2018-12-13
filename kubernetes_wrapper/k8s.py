@@ -38,6 +38,7 @@ import threading
 import sys
 import concurrent.futures as pool
 import psycopg2
+import datetime
 
 from kubernetes_wrapper import messaging as messaging
 from kubernetes_wrapper import k8s_helpers as tools
@@ -333,7 +334,7 @@ class KubernetesWrapper(object):
         # Extract the correlation id
         corr_id = properties.correlation_id
 
-        func_id = message['id']
+        func_id = message['vnfd']['uuid']    # TODO: Check if this is the correct uuid
 
         # Add the function to the ledger
         self.add_function_to_ledger(message, corr_id, func_id, t.CNF_DEPLOY)
@@ -537,46 +538,88 @@ class KubernetesWrapper(object):
 
         self.start_next_task(func_id)
 
+    def vnfr_base(self):
+        vnfr = {}
+        vnfr["descriptor_reference"] = None
+        vnfr["descriptor_version"] = "vnfr-schema-01"
+        vnfr["status"] = "normal operation"
+        vnfr["virtual_deployment_units"] = []
+        vnfr["virtual_links"] = []
+        vnfr["uuid"] = None
+
+        return vnfr
+
 
     def deploy_cnf(self, func_id):
         """
         This methods requests the deployment of a cnf
         """
         function = self.functions[func_id]
-        obj_deployment = engine.KubernetesWrapperEngine.deployment_object(self, func_id, function['vnfd'])
-
-        LOG.info("Reply from Kubernetes" + str(obj_deployment))      
+        # LOG.info("function: " + str(self.functions))
+        obj_deployment = engine.KubernetesWrapperEngine.deployment_object(self, function['vnfd']['instance_uuid'], function['vnfd'])
+        # LOG.info("Reply from Kubernetes" + str(obj_deployment))
 
         deployment_selector = obj_deployment.spec.template.metadata.labels.get("deployment")
-        LOG.info("Deployment Selector: " + str(deployment_selector))
+        # LOG.info("Deployment Selector: " + str(deployment_selector))
 
-        LOG.info("function[vnfd]:" + str(function['vnfd']))
-        obj_service=engine.KubernetesWrapperEngine.service_object(self, func_id, function['vnfd'], deployment_selector)
-        LOG.info("Service Object:" + str(obj_service))
+        # LOG.info("function[vnfd]:" + str(function['vnfd']))
+        obj_service = engine.KubernetesWrapperEngine.service_object(self, function['vnfd']['instance_uuid'], function['vnfd'], deployment_selector)
+        # LOG.info("Service Object:" + str(obj_service))
         LOG.info("Creating a Deployment")
-        engine.KubernetesWrapperEngine.create_deployment(self, obj_deployment, "default")
+        deployment = engine.KubernetesWrapperEngine.create_deployment(self, obj_deployment, "default")
+
+        # LOG.debug("SERVICE DEPLOYMENT REPLY: " + str(deployment).replace("\n", ""))
+
         LOG.info("Creating a Service")
-        engine.KubernetesWrapperEngine.create_service(self, obj_service, "default")
+        service = engine.KubernetesWrapperEngine.create_service(self, obj_service, "default")
+        
+        # LOG.debug("SERVICE CREATION REPLY: " + str(service).replace("\n", ""))
 
         outg_message = {}
-        outg_message['vnfd'] = function['vnfd']
-        outg_message['vnfd']['instance_uuid'] = function['id']
-        outg_message['vim_uuid'] = function['vim_uuid']
+        outg_message['vimUuid'] = function['vim_uuid']
         outg_message['service_instance_id'] = function['service_instance_id']
+        outg_message['instanceName'] = function['vnfd']['name']
+        outg_message['ip_mapping'] = []
+        if service.get('ip_mapping'):
+            outg_message['ip_mapping'] = service.get('ip_mapping')
+        outg_message['request_status'] = "COMPLETED"
+        
+        # Generating vnfr base
+        outg_message['vnfr'] = self.vnfr_base()
+        
+        # Updating vnfr
+        outg_message['vnfr']['descriptor_reference'] = func_id
+        outg_message['vnfr']["uuid"] = function['vnfd']["uuid"]
+        virtual_deployment_units = []
+        for cdu in function['vnfd']['cloudnative_deployment_units']:
+            virtual_deployment_unit = {}
+            virtual_deployment_unit["id"] = cdu["id"].split("-")[0]
+            virtual_deployment_unit['number_of_instances'] = 1                          # TODO: update this value
+            # virtual_deployment_unit['resource_requirements'] = {}                     # TODO: Open field
+            virtual_deployment_unit['vdu_reference'] = str(function['vnfd']['name']) + str(cdu["id"])
+            virtual_deployment_unit['vnfc_instance'] = []                               # TODO: difficult part
+            virtual_deployment_unit['vm_image'] = cdu['image']
+            virtual_deployment_units.append(virtual_deployment_unit)
+        outg_message['vnfr']['virtual_deployment_units'] = virtual_deployment_units
 
+        if service['ports']:
+            outg_message['vnfr']['descriptor_reference'] = func_id
+
+        outg_message['message'] = ""
+        LOG.info("MESSAGE: " + str(outg_message))
         payload = yaml.dump(outg_message)
 
-        corr_id = str(uuid.uuid4())
-        self.functions[func_id]['act_corr_id'] = corr_id
+        corr_id = self.functions[func_id]['orig_corr_id']
 
         msg = ": IA contacted for function deployment."
         LOG.info("Function " + func_id + msg)
-        LOG.debug("Payload of request: " + payload)
+        LOG.debug("Payload of request: " + str(payload).replace("\n", ""))
+
         # Contact the IA
-        self.manoconn.call_async(self.IA_deploy_response,
-                                 t.CNF_DEPLOY,
-                                 payload,
-                                 correlation_id=corr_id)
+        self.manoconn.notify(t.CNF_DEPLOY_RESPONSE,
+                             payload,
+                             correlation_id=corr_id)
+
         LOG.info("CNF WAS DEPLOYED CORRECTLY")
         # Pause the chain of tasks to wait for response
         self.functions[func_id]['pause_chain'] = True
