@@ -119,15 +119,13 @@ class KubernetesWrapperEngine(object):
                         body=deployment, namespace=namespace , async_req=False)
 
         for iteration in range(MAX_DEPLOYMENT_TIME):
-            LOG.info(iteration)
+            # LOG.info(iteration)
             if iteration == MAX_DEPLOYMENT_TIME - 1:
                 status = "ERROR"
                 message = "Deployment time exceeded"
                 break
             try: 
                 resp = k8s_beta.read_namespaced_deployment(resp.metadata.name, namespace=namespace, exact=False, export=False)
-                pprint(resp)
-                #print(len(resp.status.conditions))
                 if resp.status.conditions:
                     if len(resp.status.conditions) >  1:
                         LOG.info("Deployment created. Status='%s' Message='%s' Reason='%s'" % 
@@ -153,8 +151,7 @@ class KubernetesWrapperEngine(object):
                 reply['vimUuid'] = "unknown"
                 reply['request_status'] = "ERROR"
                 reply['ip_mapping'] = None
-                reply['vnfr'] = None
-                LOG.info(str(reply))
+                reply['vnfr'] = resp
                 return reply
             time.sleep(2)
         
@@ -164,8 +161,7 @@ class KubernetesWrapperEngine(object):
         reply['vimUuid'] = "unknown" 
         reply['request_status'] = status
         reply['ip_mapping'] = None
-        reply['vnfr'] = None
-        LOG.info(str(reply))
+        reply['vnfr'] = resp.to_dict
         return reply
 
     def create_service(self, service, namespace, watch=False, include_uninitialized=True, pretty='True' ):
@@ -175,40 +171,32 @@ class KubernetesWrapperEngine(object):
         k8s_beta = client.CoreV1Api()
         resp = k8s_beta.create_namespaced_service(
                         body=service, namespace=namespace , async_req=False)
-        LOG.info(resp)
-        message = "COMPLETED"
-        '''
-        for iteration in range(MAX_DEPLOYMENT_TIME):
-            LOG.info(iteration)
-            if iteration == MAX_DEPLOYMENT_TIME - 1:
-                status = "ERROR"
-                message = "Deployment time exceeded"
-                break
-            try: 
-                resp = k8s_beta.read_namespaced_service(resp.metadata.name, namespace=namespace, exact=False, export=False)
-                LOG.info(resp)
+        
+        res_name = resp.metadata.name
 
-            except ApiException as e:
-                LOG.info("Exception when calling ExtensionsV1beta1Api->read_namespaced_deployment: %s\n" % e)
-                reply['message'] = e
-                reply['instanceName'] = str(resp.metadata.name)
-                reply['instanceVimUuid'] = "unknown"
-                reply['vimUuid'] = "unknown" 
-                reply['request_status'] = "ERROR"
-                reply['ip_mapping'] = None
-                reply['vnfr'] = resp
-                LOG.info(str(reply))
-                return reply
-            time.sleep(2)
-        '''
+        resp2 = k8s_beta.read_namespaced_service_status(name=res_name , namespace=namespace , async_req=False)
+        
+        LOG.info("READING SERVICE STATUS: " + str(resp2))
+
+        message = "COMPLETED"
         reply['message'] = message
         reply['instanceName'] = str(resp.metadata.name)
-        reply['instanceVimUuid'] = "unknown"
-        reply['vimUuid'] = "unknown" 
         reply['request_status'] = status
         reply['ip_mapping'] = None
-        reply['vnfr'] = None
-        LOG.info(str(reply))
+
+        loadbalancerip = resp2.status.load_balancer.ingress[0].ip
+        LOG.info("STATUS: " + str(loadbalancerip))
+        
+        internal_ip = resp2.spec.cluster_ip
+        LOG.info("SPEC: " + str(internal_ip))
+        
+        ports = resp2.spec.ports
+
+        reply['ip_mapping'] = [ loadbalancerip, internal_ip ]
+        reply['ports'] = None
+        if status:
+            reply['ports'] = ports
+        reply['vnfr'] = resp2
         return reply
 
     def get_deployment_status(self, namespace, deployment):
@@ -314,8 +302,8 @@ class KubernetesWrapperEngine(object):
                                                         port_service["port"] = port_number
                                                         port_service["target_port"] = cdu_cp["port"]
                                                         ports_services.append(port_service)               
-        LOG.info("Port_Services: " + str(ports_services))
-        LOG.info("Deployment Selector:" + str(deployment_selector).replace("\n", ""))
+        # LOG.info("Port_Services: " + str(ports_services))
+        # LOG.info("Deployment Selector:" + str(deployment_selector).replace("\n", ""))
         
         # Create the specification of service
         spec = client.V1ServiceSpec(
