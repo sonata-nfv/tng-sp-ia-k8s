@@ -140,7 +140,7 @@ class KubernetesWrapper(object):
             if connection:
                 cursor.close()
                 connection.close()
-                LOG.info("PostgreSQL connection is closed")
+                # LOG.info("PostgreSQL connection is closed")
 
     def run(self):
         """
@@ -301,11 +301,11 @@ class KubernetesWrapper(object):
         # Extract the correlation id
         corr_id = properties.correlation_id
         payload_dict = yaml.load(payload)
-        LOG.info("payload_dict: " + str(payload_dict))
+        # LOG.info("payload_dict: " + str(payload_dict))
         instance_uuid = payload_dict.get("instance_id")
         # Write info to database
         for vim_list in payload_dict["vim_list"]:
-            LOG.info("vim_list: " + str(vim_list))
+            # LOG.info("vim_list: " + str(vim_list))
             vim_uuid = vim_list.get("uuid")
             self.write_service_prep(instance_uuid, vim_uuid)
 
@@ -344,8 +344,8 @@ class KubernetesWrapper(object):
         add_schedule.append("deploy_cnf")
         add_schedule.append("inform_flm_on_deployment")
 
-        LOG.info("Functions " + str(self.functions))
-        LOG.info("Function " + func_id)
+        # LOG.info("Functions " + str(self.functions))
+        # LOG.info("Function " + func_id)
         self.functions[func_id]['schedule'].extend(add_schedule)
 
         msg = ": New instantiation request received. Instantiation started."
@@ -544,8 +544,7 @@ class KubernetesWrapper(object):
         vnfr["descriptor_version"] = "vnfr-schema-01"
         vnfr["status"] = "normal operation"
         vnfr["virtual_deployment_units"] = []
-        vnfr["virtual_links"] = []
-        vnfr["uuid"] = None
+        vnfr["id"] = None
 
         return vnfr
 
@@ -568,12 +567,12 @@ class KubernetesWrapper(object):
         LOG.info("Creating a Deployment")
         deployment = engine.KubernetesWrapperEngine.create_deployment(self, obj_deployment, "default")
 
-        # LOG.debug("SERVICE DEPLOYMENT REPLY: " + str(deployment).replace("\n", ""))
+        # LOG.debug("SERVICE DEPLOYMENT REPLY: " + str(deployment))
 
         LOG.info("Creating a Service")
         service = engine.KubernetesWrapperEngine.create_service(self, obj_service, "default")
         
-        # LOG.debug("SERVICE CREATION REPLY: " + str(service).replace("\n", ""))
+        # LOG.debug("SERVICE CREATION REPLY: " + str(service))
 
         outg_message = {}
         outg_message['vimUuid'] = function['vim_uuid']
@@ -589,7 +588,7 @@ class KubernetesWrapper(object):
         
         # Updating vnfr
         outg_message['vnfr']['descriptor_reference'] = func_id
-        outg_message['vnfr']["uuid"] = function['vnfd']["uuid"]
+        outg_message['vnfr']["id"] = function['vnfd']["uuid"]
         virtual_deployment_units = []
         for cdu in function['vnfd']['cloudnative_deployment_units']:
             virtual_deployment_unit = {}
@@ -597,7 +596,22 @@ class KubernetesWrapper(object):
             virtual_deployment_unit['number_of_instances'] = 1                          # TODO: update this value
             # virtual_deployment_unit['resource_requirements'] = {}                     # TODO: Open field
             virtual_deployment_unit['vdu_reference'] = str(function['vnfd']['name']) + str(cdu["id"])
-            virtual_deployment_unit['vnfc_instance'] = []                               # TODO: difficult part
+            virtual_deployment_unit['vnfc_instance'] = []                               # TODO: check this :)
+            vnfc_instance = {}
+            vnfc_instance["id"] = service.get('instanceName')
+            vnfc_instance["connection_points"] = []
+            for cp_item in service["vnfr"].spec.ports:
+                connection_point = {}
+                connection_point["id"] = cp_item.name
+                connection_point["type"] =  "serviceendpoint"
+                connection_point["interface"] = { "address": service["vnfr"].spec.cluster_ip , \
+                                                  "port": cp_item.port, "protocol": cp_item.protocol, \
+                                                  "target_port": cp_item.target_port }
+                vnfc_instance["connection_points"].append(connection_point)
+            vnfc_instance["vim_id"] = function['vim_uuid']
+            vnfc_instance["host_id"] = "node1"                                          # TODO: extract the nodeselector information
+            vnfc_instance["vc_id"] = service["vnfr"].metadata.uid
+            virtual_deployment_unit['vnfc_instance'].append(vnfc_instance)
             virtual_deployment_unit['vm_image'] = cdu['image']
             virtual_deployment_units.append(virtual_deployment_unit)
         outg_message['vnfr']['virtual_deployment_units'] = virtual_deployment_units
@@ -606,14 +620,14 @@ class KubernetesWrapper(object):
             outg_message['vnfr']['descriptor_reference'] = func_id
 
         outg_message['message'] = ""
-        LOG.info("MESSAGE: " + str(outg_message))
+        # LOG.info("MESSAGE: " + str(outg_message))
         payload = yaml.dump(outg_message)
 
         corr_id = self.functions[func_id]['orig_corr_id']
 
         msg = ": IA contacted for function deployment."
-        LOG.info("Function " + func_id + msg)
-        LOG.debug("Payload of request: " + str(payload).replace("\n", ""))
+        # LOG.info("Function " + func_id + msg)
+        # LOG.debug("Payload of request: " + str(payload).replace("\n", ""))
 
         # Contact the IA
         self.manoconn.notify(t.CNF_DEPLOY_RESPONSE,
