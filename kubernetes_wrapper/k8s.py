@@ -301,11 +301,11 @@ class KubernetesWrapper(object):
         # Extract the correlation id
         corr_id = properties.correlation_id
         payload_dict = yaml.load(payload)
-        LOG.info("payload_dict: " + str(payload_dict))
+        # LOG.info("payload_dict: " + str(payload_dict))
         instance_uuid = payload_dict.get("instance_id")
         # Write info to database
         for vim_list in payload_dict["vim_list"]:
-            LOG.info("vim_list: " + str(vim_list))
+            # LOG.info("vim_list: " + str(vim_list))
             vim_uuid = vim_list.get("uuid")
             self.write_service_prep(instance_uuid, vim_uuid)
 
@@ -545,7 +545,7 @@ class KubernetesWrapper(object):
         vnfr["status"] = "normal operation"
         vnfr["virtual_deployment_units"] = []
         vnfr["virtual_links"] = []
-        vnfr["uuid"] = None
+        vnfr["id"] = None
 
         return vnfr
 
@@ -589,7 +589,7 @@ class KubernetesWrapper(object):
         
         # Updating vnfr
         outg_message['vnfr']['descriptor_reference'] = func_id
-        outg_message['vnfr']["uuid"] = function['vnfd']["uuid"]
+        outg_message['vnfr']["id"] = function['vnfd']["uuid"]
         virtual_deployment_units = []
         for cdu in function['vnfd']['cloudnative_deployment_units']:
             virtual_deployment_unit = {}
@@ -606,7 +606,7 @@ class KubernetesWrapper(object):
             outg_message['vnfr']['descriptor_reference'] = func_id
 
         outg_message['message'] = ""
-        LOG.info("MESSAGE: " + str(outg_message))
+        # LOG.info("MESSAGE: " + str(outg_message))
         payload = yaml.dump(outg_message)
 
         corr_id = self.functions[func_id]['orig_corr_id']

@@ -119,7 +119,7 @@ class KubernetesWrapperEngine(object):
                         body=deployment, namespace=namespace , async_req=False)
 
         for iteration in range(MAX_DEPLOYMENT_TIME):
-            # LOG.info(iteration)
+            LOG.info(iteration)
             if iteration == MAX_DEPLOYMENT_TIME - 1:
                 status = "ERROR"
                 message = "Deployment time exceeded"
@@ -176,23 +176,24 @@ class KubernetesWrapperEngine(object):
 
         resp2 = k8s_beta.read_namespaced_service_status(name=res_name , namespace=namespace , async_req=False)
         
-        LOG.info("READING SERVICE STATUS: " + str(resp2))
+        # LOG.info("READING SERVICE STATUS: " + str(resp2))
 
         message = "COMPLETED"
         reply['message'] = message
         reply['instanceName'] = str(resp.metadata.name)
         reply['request_status'] = status
-        reply['ip_mapping'] = None
+        reply['ip_mapping'] = []
 
         loadbalancerip = resp2.status.load_balancer.ingress[0].ip
-        LOG.info("STATUS: " + str(loadbalancerip))
+        # LOG.info("STATUS: " + str(loadbalancerip))
         
         internal_ip = resp2.spec.cluster_ip
-        LOG.info("SPEC: " + str(internal_ip))
+        # LOG.info("SPEC: " + str(internal_ip))
         
         ports = resp2.spec.ports
-
-        reply['ip_mapping'] = [ loadbalancerip, internal_ip ]
+        
+        mapping = { "internal_ip": internal_ip, "floating_ip": loadbalancerip }
+        reply['ip_mapping'].append(mapping)
         reply['ports'] = None
         if status:
             reply['ports'] = ports
@@ -225,11 +226,11 @@ class KubernetesWrapperEngine(object):
                 ports:
                 - containerPort: 80
         """)
-        LOG.info("This is the deployment file" + yaml.dump(deployment))
+        # LOG.info("This is the deployment file" + yaml.dump(deployment))
         return deployment
     
     def deployment_object(self, DEPLOYMENT_NAME, cnf_yaml):
-        LOG.info("CNFD: " + str(cnf_yaml))
+        # LOG.info("CNFD: " + str(cnf_yaml))
         port_list = []
         if "cloudnative_deployment_units" in cnf_yaml:
             cdu = cnf_yaml.get('cloudnative_deployment_units')
@@ -247,7 +248,7 @@ class KubernetesWrapperEngine(object):
         else:
             pass
 
-        LOG.info("Result: " + str(container_name), str(image), str(port))
+        # LOG.info("Result: " + str(container_name) + str(image) + str(port))
         
         # Configureate Pod template container
         container = client.V1Container(
@@ -271,29 +272,29 @@ class KubernetesWrapperEngine(object):
         return deployment_k8s
 
     def service_object(self, DEPLOYMENT_NAME, cnf_yaml, deployment_selector):
-        LOG.info("CNFD: " + str(cnf_yaml))
+        # LOG.info("CNFD: " + str(cnf_yaml))
         ports_services=[]
         if cnf_yaml.get("connection_points"):
             for connection_points in cnf_yaml["connection_points"]:
-                LOG.info("CONNECTION_POINTS:" + str(connection_points))
+                # LOG.info("CONNECTION_POINTS:" + str(connection_points))
                 port_id = connection_points["id"]
                 port_number = connection_points["port"]
-                LOG.info("port_id: " + str(port_id) + " port_number: " + str(port_number))
+                # LOG.info("port_id: " + str(port_id) + " port_number: " + str(port_number))
                 if cnf_yaml.get("virtual_links"):
                     for vl in cnf_yaml["virtual_links"]:
                         vl_cp = vl["connection_points_reference"]
-                        LOG.info("VLS_CP: " + str(vl_cp))
+                        # LOG.info("VLS_CP: " + str(vl_cp))
                         if port_id in vl_cp:
-                            LOG.info("Found cp in vl_cp")
+                            # LOG.info("Found cp in vl_cp")
                             for cdu in cnf_yaml["cloudnative_deployment_units"]:
-                                LOG.info("loop cdus")
-                                LOG.debug("vl_cp: " + str(vl_cp))
+                                # LOG.info("loop cdus")
+                                # LOG.debug("vl_cp: " + str(vl_cp))
                                 for cpr in vl_cp:
-                                    LOG.info("cpr: " + str(cpr))
+                                    # LOG.info("cpr: " + str(cpr))
                                     if ":" in cpr:
                                         cpr_cdu = cpr.split(":")[0]
                                         cpr_cpid = cpr.split(":")[1]
-                                        LOG.info("Comparison cpr_cdu == cdu[id]:" + str(cpr_cdu) + " " + str(cdu["id"].split("-")[0]))
+                                        # LOG.info("Comparison cpr_cdu == cdu[id]:" + str(cpr_cdu) + " " + str(cdu["id"].split("-")[0]))
                                         if cpr_cdu == cdu["id"].split("-")[0]:
                                             for cdu_cp in cdu["connection_points"]:
                                                 if cpr_cpid == cdu_cp["id"]:
@@ -318,7 +319,7 @@ class KubernetesWrapperEngine(object):
             kind="Service",
             metadata=client.V1ObjectMeta(name="service-" + DEPLOYMENT_NAME, namespace="default"),
             spec=spec)
-        LOG.info(service)
+        # LOG.info(service)
         return service
 
     def resource_object(self, vim_id):
@@ -335,7 +336,7 @@ class KubernetesWrapperEngine(object):
                 resource["core_total"] = node["status"]["capacity"].get("cpu")
                 resource["memory_total"] = node["status"]["capacity"].get("memory")
                 resource["memory_allocatable"] = node["status"]["allocatable"].get("memory")
-                LOG.info(resource)
+                # LOG.info(resource)
                 resources.append(resource)
         # Response:
         # { resources: [{ node-name: k8s, core_total: 16, memory_total: 32724804, memory_allocatable: 32724804}] }
@@ -356,7 +357,7 @@ class KubernetesWrapperEngine(object):
                     memory = item["usage"]["memory"]
                     cpu_used += int(cpu[0:-1])
                     memory_used += int(memory[0:-2])   
-        LOG.info("CPU Used: " + str(cpu_used) + "Memory Used:" + str(memory_used))
+        # LOG.info("CPU Used: " + str(cpu_used) + "Memory Used:" + str(memory_used))
         return (cpu_used, memory_used)
 
 test = KubernetesWrapperEngine()
