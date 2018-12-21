@@ -119,28 +119,36 @@ class KubernetesWrapperEngine(object):
                         body=deployment, namespace=namespace , async_req=False)
 
         for iteration in range(MAX_DEPLOYMENT_TIME):
-            LOG.info(iteration)
+            # LOG.info(iteration)
             if iteration == MAX_DEPLOYMENT_TIME - 1:
                 status = "ERROR"
                 message = "Deployment time exceeded"
                 break
+            elif status == "COMPLETED":
+                break
+
             try: 
                 resp = k8s_beta.read_namespaced_deployment(resp.metadata.name, namespace=namespace, exact=False, export=False)
                 if resp.status.conditions:
-                    if len(resp.status.conditions) >  1:
-                        LOG.info("Deployment created. Status='%s' Message='%s' Reason='%s'" % 
-                                ( str(resp.status.conditions[1].status), 
-                                str(resp.status.conditions[1].message), 
-                                str(resp.status.conditions[1].reason)))
-                        if resp.status.conditions[1].status == "False":
-                            status = "ERROR"
-                            break
-                        elif resp.status.conditions[1].status == "True":
-                            if resp.status.conditions[1].reason == "ReplicaSetUpdated":
-                                pass
-                            elif resp.status.conditions[1].reason == "NewReplicaSetAvailable":
-                                status = "COMPLETED"
-                                message = None
+                    conditions = resp.status.conditions
+                    if len(conditions) >=  1:
+                        for condition in conditions:
+                            if condition.status:
+                                # LOG.info(str(condition))
+                                LOG.info("Deployment created. Status='%s' Message='%s' Reason='%s'" % 
+                                        (str(condition.status), 
+                                        str(condition.message), 
+                                        str(condition.reason)))
+                                if condition.status == "False":
+                                    status = "ERROR"
+                                    break
+                                elif condition.status == "True":
+                                    if condition.reason == "ReplicaSetUpdated":
+                                        pass
+                                    elif condition.reason == "NewReplicaSetAvailable" or "MinimumReplicasAvailable":
+                                        status = "COMPLETED"
+                                        message = None
+                                        break
                                 break
 
             except ApiException as e:
@@ -174,8 +182,20 @@ class KubernetesWrapperEngine(object):
         
         res_name = resp.metadata.name
 
-        resp2 = k8s_beta.read_namespaced_service_status(name=res_name , namespace=namespace , async_req=False)
-        
+        for iteration in range(MAX_DEPLOYMENT_TIME):
+            # LOG.info(iteration)
+            if iteration == MAX_DEPLOYMENT_TIME - 1:
+                status = "ERROR"
+                message = "Deployment time exceeded"
+                break
+            try:    
+                resp2 = k8s_beta.read_namespaced_service_status(name=res_name , namespace=namespace , async_req=False)
+                if resp2.status.load_balancer.ingress is not None:
+                    break
+            except ApiException as e:
+                LOG.info("Exception when calling ExtensionsV1beta1Api->read_namespaced_deployment: %s\n" % e)
+            time.sleep(2)
+
         # LOG.info("READING SERVICE STATUS: " + str(resp2))
 
         message = "COMPLETED"
@@ -185,7 +205,8 @@ class KubernetesWrapperEngine(object):
         reply['ip_mapping'] = []
 
         loadbalancerip = resp2.status.load_balancer.ingress[0].ip
-        # LOG.info("STATUS: " + str(loadbalancerip))
+
+        LOG.info("loadbalancerip: " + str(loadbalancerip))
         
         internal_ip = resp2.spec.cluster_ip
         # LOG.info("SPEC: " + str(internal_ip))
