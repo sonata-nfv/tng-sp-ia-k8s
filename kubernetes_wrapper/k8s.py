@@ -543,7 +543,7 @@ class KubernetesWrapper(object):
         vnfr["descriptor_reference"] = None
         vnfr["descriptor_version"] = "vnfr-schema-01"
         vnfr["status"] = "normal operation"
-        vnfr["virtual_deployment_units"] = []
+        vnfr["cloudnative_deployment_units"] = []
         vnfr["id"] = None
 
         return vnfr
@@ -589,32 +589,23 @@ class KubernetesWrapper(object):
         # Updating vnfr
         outg_message['vnfr']['descriptor_reference'] = func_id
         outg_message['vnfr']["id"] = function['vnfd']["uuid"]
-        virtual_deployment_units = []
+        cloudnative_deployment_units = []
         for cdu in function['vnfd']['cloudnative_deployment_units']:
-            virtual_deployment_unit = {}
-            virtual_deployment_unit["id"] = cdu["id"].split("-")[0]
-            virtual_deployment_unit['number_of_instances'] = 1                          # TODO: update this value
-            # virtual_deployment_unit['resource_requirements'] = {}                     # TODO: Open field
-            virtual_deployment_unit['vdu_reference'] = str(function['vnfd']['name']) + str(cdu["id"])
-            virtual_deployment_unit['vnfc_instance'] = []                               # TODO: check this :)
-            vnfc_instance = {}
-            vnfc_instance["id"] = service.get('instanceName')
-            vnfc_instance["connection_points"] = []
+            cloudnative_deployment_unit = {}
+            cloudnative_deployment_unit["id"] = cdu["id"].split("-")[0]
+            cloudnative_deployment_unit['image'] = cdu['image']
+            cloudnative_deployment_unit['vim_id'] = function['vim_uuid']
+            cloudnative_deployment_unit['cdu_reference'] = str(function['vnfd']['name']) + str(cdu["id"])
+            cloudnative_deployment_unit['number_of_instances'] = 1                  # TODO: update this value
+            cloudnative_deployment_unit['load_balancer_ip'] = {'address': service["vnfr"].spec.cluster_ip}
+            cloudnative_deployment_unit['connection_points'] = []                               # TODO: check this :)
             for cp_item in service["vnfr"].spec.ports:
                 connection_point = {}
                 connection_point["id"] = cp_item.name
-                connection_point["type"] =  "serviceendpoint"
-                connection_point["interface"] = { "address": service["vnfr"].spec.cluster_ip , \
-                                                  "port": cp_item.port, "protocol": cp_item.protocol, \
-                                                  "target_port": cp_item.target_port }
-                vnfc_instance["connection_points"].append(connection_point)
-            vnfc_instance["vim_id"] = function['vim_uuid']
-            vnfc_instance["host_id"] = "node1"                                          # TODO: extract the nodeselector information
-            vnfc_instance["vc_id"] = service["vnfr"].metadata.uid
-            virtual_deployment_unit['vnfc_instance'].append(vnfc_instance)
-            virtual_deployment_unit['vm_image'] = cdu['image']
-            virtual_deployment_units.append(virtual_deployment_unit)
-        outg_message['vnfr']['virtual_deployment_units'] = virtual_deployment_units
+                connection_point["type"] = "serviceendpoint"
+                connection_point["port"] = cp_item.port
+                cloudnative_deployment_unit['connection_points'].append(connection_point)
+        outg_message['vnfr']['cloudnative_deployment_units'] = cloudnative_deployment_units
 
         if service['ports']:
             outg_message['vnfr']['descriptor_reference'] = func_id
