@@ -597,7 +597,7 @@ class KubernetesWrapper(object):
             cloudnative_deployment_unit['vim_id'] = function['vim_uuid']
             cloudnative_deployment_unit['cdu_reference'] = str(function['vnfd']['name']) + str(cdu["id"])
             cloudnative_deployment_unit['number_of_instances'] = 1                  # TODO: update this value
-            cloudnative_deployment_unit['load_balancer_ip'] = service.get('ip_mapping')
+            cloudnative_deployment_unit['load_balancer_ip'] = service.get('ip_mapping')[0]
             cloudnative_deployment_unit['connection_points'] = []                               # TODO: check this :)
             for cp_item in service["vnfr"].spec.ports:
                 connection_point = {}
