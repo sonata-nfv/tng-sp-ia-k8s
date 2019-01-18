@@ -605,6 +605,7 @@ class KubernetesWrapper(object):
                 connection_point["type"] = "serviceendpoint"
                 connection_point["port"] = cp_item.port
                 cloudnative_deployment_unit['connection_points'].append(connection_point)
+            cloudnative_deployment_units.append(cloudnative_deployment_unit)
         outg_message['vnfr']['cloudnative_deployment_units'] = cloudnative_deployment_units
 
         if service['ports']:
