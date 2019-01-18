@@ -587,8 +587,8 @@ class KubernetesWrapper(object):
         outg_message['vnfr'] = self.vnfr_base()
         
         # Updating vnfr
-        outg_message['vnfr']['descriptor_reference'] = func_id
-        outg_message['vnfr']["id"] = function['vnfd']["uuid"]
+        outg_message['vnfr']['descriptor_reference'] = function['vnfd']["uuid"]
+        outg_message['vnfr']["id"] = func_id
         cloudnative_deployment_units = []
         for cdu in function['vnfd']['cloudnative_deployment_units']:
             cloudnative_deployment_unit = {}
