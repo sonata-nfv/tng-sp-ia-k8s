@@ -334,7 +334,7 @@ class KubernetesWrapper(object):
         # Extract the correlation id
         corr_id = properties.correlation_id
 
-        func_id = message['vnfd']['uuid']    # TODO: Check if this is the correct uuid
+        func_id = message['id']    # TODO: Check if this is the correct uuid
 
         # Add the function to the ledger
         self.add_function_to_ledger(message, corr_id, func_id, t.CNF_DEPLOY)
