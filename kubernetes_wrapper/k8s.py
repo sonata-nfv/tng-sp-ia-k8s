@@ -368,42 +368,48 @@ class KubernetesWrapper(object):
         # Extract the correlation id
         corr_id = properties.correlation_id
 
-        vim_id = "8888-22222222-33333333-8888"
-        obj_resource = engine.KubernetesWrapperEngine.resource_object(self, vim_id)
-        cpu_used, memory_used = engine.KubernetesWrapperEngine.node_metrics_object(self, vim_id)
+        vims = []
+        vim_list = None
+        obj_resource = None
+        vim_list = engine.KubernetesWrapperEngine.get_vim_list(self)
 
-        vim = {}
+        for vim_uuid in vim_list:
+            obj_resource = engine.KubernetesWrapperEngine.resource_object(self, vim_uuid)
+            cpu_used, memory_used = engine.KubernetesWrapperEngine.node_metrics_object(self, vim_uuid)
+            vim = {}
 
-        # { vim_uuid: uuid, vim_city: city, vim_endpoint: null, memory_total: int, memory_allocatable: int, core_total: int }
+            # { vim_uuid: uuid, vim_city: city, vim_endpoint: null, memory_total: int, memory_allocatable: int, core_total: int }
+            
+            vim['vim_uuid'] = vim_uuid[0]
+            vim['vim_city'] = "Athens"
+            vim['vim_domain'] = "null"
+            vim['vim_name'] = "k8s"
+            vim['vim_endpoint'] = "null"
+            vim["core_total"] = 0
+            vim["memory_allocatable"] = 0
+            vim["memory_total"] = 0
+            vim["cpu_used"] = 0
+            vim["memory_used"] = 0
 
-        vim['vim_uuid'] = "8888-22222222-33333333-8888"
-        vim['vim_city'] = "Athens"
-        vim['vim_domain'] = "null"
-        vim['vim_name'] = "k8s"
-        vim['vim_endpoint'] = "null"
-        vim["core_total"] = 0
-        vim["memory_allocatable"] = 0
-        vim["memory_total"] = 0
-        vim["cpu_used"] = 0
-        vim["memory_used"] = 0
+            for cores in obj_resource:
+                vim["core_total"] += int(cores["core_total"])
+            for memory_allocatable in obj_resource:
+                mem_a = memory_allocatable["memory_allocatable"]
+                mema = int(mem_a[0:-2])
+                vim["memory_allocatable"] += mema
+            for memory_total in obj_resource:
+                mem_t = memory_total["memory_total"]
+                memt = int(mem_t[0:-2])
+                vim["memory_total"] += memt
 
-        for cores in obj_resource:
-            vim["core_total"] += int(cores["core_total"])
-        for memory_allocatable in obj_resource:
-            mem_a = memory_allocatable["memory_allocatable"]
-            mema = int(mem_a[0:-2])
-            vim["memory_allocatable"] += mema
-        for memory_total in obj_resource:
-            mem_t = memory_total["memory_total"]
-            memt = int(mem_t[0:-2])
-            vim["memory_total"] += memt
+            if cpu_used:
+                vim["cpu_used"] = cpu_used
+            if memory_used:
+                vim["memory_used"] = memory_used
 
-        if cpu_used:
-            vim["cpu_used"] = cpu_used
-        if memory_used:
-            vim["memory_used"] = memory_used
-        
-        outg_message = {'resources': [vim]}
+            vims.append(vim)
+
+        outg_message = {'resources': vims}
         LOG.info("Full msg: " + str(outg_message))
         payload = yaml.safe_dump(outg_message, allow_unicode=True, default_flow_style=False)
 
@@ -560,18 +566,16 @@ class KubernetesWrapper(object):
 
         deployment_selector = obj_deployment.spec.template.metadata.labels.get("deployment")
         # LOG.info("Deployment Selector: " + str(deployment_selector))
-
         # LOG.info("function[vnfd]:" + str(function['vnfd']))
         obj_service = engine.KubernetesWrapperEngine.service_object(self, function['vnfd']['instance_uuid'], function['vnfd'], deployment_selector)
         # LOG.info("Service Object:" + str(obj_service))
+
         LOG.info("Creating a Deployment")
         deployment = engine.KubernetesWrapperEngine.create_deployment(self, obj_deployment, "default")
-
         # LOG.debug("SERVICE DEPLOYMENT REPLY: " + str(deployment))
 
         LOG.info("Creating a Service")
         service = engine.KubernetesWrapperEngine.create_service(self, obj_service, "default")
-        
         # LOG.debug("SERVICE CREATION REPLY: " + str(service))
 
         outg_message = {}
