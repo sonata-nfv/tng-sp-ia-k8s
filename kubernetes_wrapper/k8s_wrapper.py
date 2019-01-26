@@ -30,6 +30,9 @@ This is SONATA's function lifecycle management plugin
 """
 
 from kubernetes import client, config
+from kubernetes.client.configuration import Configuration
+from kubernetes.config import kube_config
+from kubernetes.client.rest import ApiException
 import logging
 import threading
 import concurrent.futures as pool
@@ -39,9 +42,9 @@ import os
 from os import path
 import yaml, json
 import uuid
-from kubernetes.client.rest import ApiException
 from pprint import pprint
 from copy import deepcopy
+import psycopg2
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger('pika').setLevel(logging.ERROR)
@@ -57,60 +60,118 @@ class KubernetesWrapperEngine(object):
         :param app_id: string that identifies application
 
         """
-        #self.cluster = cluster_id
-
         # trigger connection setup (without blocking)
-        self.load_config()
-
+        self.load_initial_config()
+        # LOG.debug("config: " + str(config) )
         # Threading workers
         self.thrd_pool = pool.ThreadPoolExecutor(max_workers=100)
         # Track the workers
         self.tasks = []
-        #self.get_pods()
-        #self.get_nodes()
-        #deployment = self.deployment_generator("name", "nginx", "80")
-        #self.create_deployment("default", deployment)
-        #self.get_deployment_status("default", "test")
-        '''
-        with open(path.join(path.dirname(__file__), "../test/media-aggregator.yaml")) as f:
-            deployment = yaml.load(f)
-            deployment_id = str(uuid.uuid4())
-            deploy = self.deployment_object(deployment_id, deployment)
-            pprint(deploy)
-            deployment_selector = deploy.spec.template.metadata.labels.get("deployment")
-            print (deployment_selector)
-        with open(path.join(path.dirname(__file__), "../test/media-aggregator.yaml")) as f:       
-            deployment = yaml.load(f)
-            pprint(deployment)
-            service = self.service_object(deployment_id, deployment, deployment_selector)
-            print("Creating a Deployment")
-            self.create_deployment(deploy, "default")
-            print("Creating a Service")
-            self.create_service(service, "default")
-        '''
 
-    def load_config(self):
-        # TODO: Configure the config from database and store it in kubeconfig
-        # https://github.com/kubernetes-client/python/blob/master/examples/multiple_clusters.py
-        config.load_kube_config()
-        
-    def get_pods(self):
-        v1 = client.CoreV1Api()
-        LOG.info("Listing pods with their IPs:")
-        ret = v1.read_node_status("k8s-worker-1", pretty="pretty")
-        ret2 = v1.read_node_status("k8s-worker-1")
-        pprint(ret)
-        for i in ret2:
-            print("%s\t%s\t%s" % (i.status.node_info, i.metadata.labels, i.metadata.name))
+    def get_vim_config(self, vim_uuid):
+        """
+        Write in database the preparation of the service before instantiation
+        This data will be used by ia-nbi to match service vim
+        """
 
-    def get_nodes(self):
-        v1 = client.CoreV1Api()
-        LOG.info("Listing pods with their IPs:")
-        ret = v1.list_pod_for_all_namespaces(watch=False)
-        for i in ret:
-            print("%s\t%s\t%s" % (i.status.pod_ip, i.metadata.namespace, i.metadata.name))
+        try:
+            connection = psycopg2.connect(user = os.getenv("POSTGRES_USER") or "sonata",
+                                          password = os.getenv("POSTGRES_PASSWORD") or "sonatatest",
+                                          host = os.getenv("DATABASE_HOST") or "son-postgres",
+                                          port = os.getenv("DATABASE_PORT") or "5432",
+                                          database = "vimregistry")
+
+            cursor = connection.cursor()
+            # Query
+            cursor.execute("""
+            SELECT configuration FROM VIM WHERE uuid = %s;
+            """, 
+            (vim_uuid,))
+            configuration = cursor.fetchone()[0]
+            # LOG.debug("Configuration:" + str(configuration))
+            # Saving the results
+            connection.commit()
+            # LOG.info("Configuration DB: " + str(configuration))
+            configuration = yaml.safe_dump(configuration)
+            # LOG.info("Configuration DB yaml: " + str(configuration))
+            return configuration
+
+        except (Exception, psycopg2.Error) as error:
+            if connection:
+                connection.rollback()
+            LOG.error("Error while connecting to PostgreSQL " + str(error))
+
+        finally:
+            #closing database connection.
+            if connection:
+                cursor.close()
+                connection.close()
+                LOG.info("PostgreSQL connection is closed")
+
+    def get_vim_list(self):
+        """
+        Get the list of VIMs registered in the database
+        """
+
+        try:
+            connection = psycopg2.connect(user = os.getenv("POSTGRES_USER") or "sonata",
+                                          password = os.getenv("POSTGRES_PASSWORD") or "sonatatest",
+                                          host = os.getenv("DATABASE_HOST") or "son-postgres",
+                                          port = os.getenv("DATABASE_PORT") or "5432",
+                                          database = "vimregistry")
+
+            cursor = connection.cursor()
+            # Query
+            cursor.execute("""
+            SELECT uuid FROM VIM WHERE vendor ='k8s';
+            """, 
+            )
+            vim_list = cursor.fetchall()
+            # Saving the results
+            connection.commit()
+            # LOG.info("VIM_LIST: " + str(vim_list))
+            return vim_list
+
+        except (Exception, psycopg2.Error) as error:
+            if connection:
+                connection.rollback()
+            LOG.error("Error while connecting to PostgreSQL " + str(error))
+
+        finally:
+            #closing database connection.
+            if connection:
+                cursor.close()
+                connection.close()
+                LOG.info("PostgreSQL connection is closed")
+
+    def load_initial_config(self):
+        """
+        Returns a kubernetes APIclient object for the initial configuration of the wrapper
+        """
+        vim_config = None
+        vim_list = None
+        if os.getenv("KUBECONFIG") is True:
+            kube_config.load_kube_config()
+        else:
+            vim_list = self.get_vim_list()
+            if vim_list is not None:
+                if len(vim_list) > 0:
+                    vim_list = str(list(vim_list[0])[0])
+                    with open("/tmp/" + vim_list, 'w') as f:
+                        vim_config = self.get_vim_config(vim_list)
+                        if vim_config is not None:
+                            f.write(vim_config)
+                    if vim_config is not None:
+                        kube_config.load_kube_config(config_file="/tmp/" + vim_list)
+                else:
+                    LOG.info("K8S Cluster is not configured")
 
     def create_deployment(self, deployment, namespace, watch=False, include_uninitialized=True, pretty='True' ):
+        """
+        CNF Instantiation method. This schedule a deployment object in kubernetes
+        deployment: k8s deployment object
+        namespace: Namespace where the deployment will be deployed
+        """
         reply = {}
         status = None
         message = None
@@ -173,6 +234,11 @@ class KubernetesWrapperEngine(object):
         return reply
 
     def create_service(self, service, namespace, watch=False, include_uninitialized=True, pretty='True' ):
+        """
+        CNF Instantiation method. This schedule a service object in kubernetes that provide networking to a deployment
+        service: k8s service object
+        namespace: Namespace where the service will be deployed
+        """
         reply = {}
         status = None
         message = None
@@ -220,37 +286,13 @@ class KubernetesWrapperEngine(object):
             reply['ports'] = ports
         reply['vnfr'] = resp2
         return reply
-
-    def get_deployment_status(self, namespace, deployment):
-        k8s_beta = client.ExtensionsV1beta1Api()
-        resp = k8s_beta.read_namespaced_deployment(
-                        name=deployment, namespace=namespace)
-        LOG.info("Deployment status='%s'" % str(resp.status))       
-        pprint(resp)
-
-    def deployment_generator(self, name, image, port):
-        LOG.info("This deployment yaml will be generated by: %s\t%s\t%s" % (name, image, port))
-        deployment = yaml.load("""
-        apiVersion: extensions/v1beta1
-        kind: Deployment
-        metadata:
-            name: test
-        spec:
-          template:
-            metadata:
-              labels:
-                app: nginx
-            spec:
-              containers:
-              - name: nginx
-                image: nginx:1.7.9
-                ports:
-                - containerPort: 80
-        """)
-        # LOG.info("This is the deployment file" + yaml.dump(deployment))
-        return deployment
-    
+   
     def deployment_object(self, DEPLOYMENT_NAME, cnf_yaml):
+        """
+        CNF modeling method. This build a deployment object in kubernetes
+        DEPLOYMENT_NAME: k8s deployment name
+        cnf_yaml: CNF Descriptor in yaml format
+        """
         # LOG.info("CNFD: " + str(cnf_yaml))
         port_list = []
         if "cloudnative_deployment_units" in cnf_yaml:
@@ -293,6 +335,12 @@ class KubernetesWrapperEngine(object):
         return deployment_k8s
 
     def service_object(self, DEPLOYMENT_NAME, cnf_yaml, deployment_selector):
+        """
+        CNF modeling method. This build a service object in kubernetes
+        DEPLOYMENT_NAME: k8s deployment name
+        cnf_yaml: CNF Descriptor in yaml format
+        deployment_selector: The deployment where the service will forward the traffic
+        """
         # LOG.info("CNFD: " + str(cnf_yaml))
         ports_services=[]
         if cnf_yaml.get("connection_points"):
@@ -343,7 +391,8 @@ class KubernetesWrapperEngine(object):
         # LOG.info(service)
         return service
 
-    def resource_object(self, vim_id):
+    def resource_object(self, vim_uuid):
+        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
         api = client.CoreV1Api()
 
         nodes = api.list_node().to_dict()
@@ -364,7 +413,13 @@ class KubernetesWrapperEngine(object):
 
         return resources
 
-    def node_metrics_object(self, vim_id):
+    def node_metrics_object(self, vim_uuid):
+        """
+        Monitoring metrics from cluster
+        vim_uuid: cluster if to get the metrics
+        """
+
+        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
         api = client.ApiClient()
         response = api.call_api('/apis/metrics.k8s.io/v1beta1/nodes', 'GET', _return_http_data_only=True, response_type=str)
         jsonify_response = response.replace("'","\"")

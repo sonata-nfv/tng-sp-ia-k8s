@@ -63,7 +63,7 @@ ADD setup.py  /tng-sp-ia-k8s/
 WORKDIR /tng-sp-ia-k8s
 RUN python setup.py develop
 
-ADD .  /tng-sp-ia-k8s
+ADD . /tng-sp-ia-k8s
 
 ENV KUBECONFIG /tng-sp-ia-k8s/config
 
