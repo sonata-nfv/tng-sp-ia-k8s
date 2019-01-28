@@ -293,35 +293,41 @@ class KubernetesWrapperEngine(object):
         DEPLOYMENT_NAME: k8s deployment name
         cnf_yaml: CNF Descriptor in yaml format
         """
-        # LOG.info("CNFD: " + str(cnf_yaml))
-        port_list = []
+        LOG.info("CNFD: " + str(cnf_yaml))
+        container_list = []
+        deployment_k8s = None
         if "cloudnative_deployment_units" in cnf_yaml:
             cdu = cnf_yaml.get('cloudnative_deployment_units')
             for cdu_obj in cdu:
+                port_list = []
                 cdu_id = cdu_obj.get('id')
-                cdu_image = cdu_obj.get('image')
+                image = cdu_obj.get('image')
                 cdu_conex = cdu_obj.get('connection_points')
                 container_name = cdu_id
-                image = cdu_image
                 if cdu_conex:
                     for po in cdu_conex:
                         port = po.get('port')
                         port_name = po.get('id')
                         port_list.append(client.V1ContainerPort(container_port=port, name=port_name))
+                # Configureate Pod template container
+                container = client.V1Container(
+                    name=container_name,
+                    image=image,
+                    ports=port_list)
+                container_list.append(container)
         else:
-            pass
+            return deployment_k8s
 
-        # LOG.info("Result: " + str(container_name) + str(image) + str(port))
+        LOG.info("Result: " + str(container_list))
         
-        # Configureate Pod template container
-        container = client.V1Container(
-            name=container_name,
-            image=image,
-            ports=port_list)
         # Create and configurate a spec section
+        deployment_label =  (str(cnf_yaml.get("vendor")) + "-" +
+                             str(cnf_yaml.get("name")) + "-" +
+                             str(cnf_yaml.get("version")) + "-" +
+                             DEPLOYMENT_NAME).replace(".", "-")
         template = client.V1PodTemplateSpec(
-            metadata=client.V1ObjectMeta(labels={'deployment': container_name}),
-            spec=client.V1PodSpec(containers=[container]))
+            metadata=client.V1ObjectMeta(labels={'deployment': deployment_label }),
+            spec=client.V1PodSpec(containers=container_list))
         # Create the specification of deployment
         spec = client.ExtensionsV1beta1DeploymentSpec(
             replicas=1,
@@ -330,7 +336,7 @@ class KubernetesWrapperEngine(object):
         deployment_k8s = client.ExtensionsV1beta1Deployment(
             api_version="extensions/v1beta1",
             kind="Deployment",
-            metadata=client.V1ObjectMeta(name=DEPLOYMENT_NAME),
+            metadata=client.V1ObjectMeta(name=deployment_label),
             spec=spec)
         return deployment_k8s
 
@@ -386,7 +392,7 @@ class KubernetesWrapperEngine(object):
         service = client.V1Service(
             api_version="v1",
             kind="Service",
-            metadata=client.V1ObjectMeta(name="service-" + DEPLOYMENT_NAME, namespace="default"),
+            metadata=client.V1ObjectMeta(name=deployment_selector, namespace="default"),
             spec=spec)
         # LOG.info(service)
         return service
