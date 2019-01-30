@@ -287,6 +287,21 @@ class KubernetesWrapperEngine(object):
         reply['vnfr'] = resp2
         return reply
    
+    def check_pod_names(self, deployment_selector, namespace, watch=False, include_uninitialized=True, pretty='True'):
+        k8s_beta = client.CoreV1Api()
+        resp = k8s_beta.list_namespaced_pod(label_selector="deployment=" + deployment_selector,
+                        namespace=namespace , async_req=False)
+        
+        # TODO: for now just 1 replica. In future we will need the all PODs names
+        cdu_reference_list = None
+        for item in resp.items:
+            cdu_reference = item.metadata.name
+        #    cdu_reference_list.append(cdu_reference)
+            
+        #LOG.info("reply: " + str(cdu_reference_list))
+        
+        return cdu_reference
+
     def deployment_object(self, DEPLOYMENT_NAME, cnf_yaml):
         """
         CNF modeling method. This build a deployment object in kubernetes
@@ -318,7 +333,7 @@ class KubernetesWrapperEngine(object):
         else:
             return deployment_k8s
 
-        LOG.info("Result: " + str(container_list))
+        # LOG.info("Result: " + str(container_list))
         
         # Create and configurate a spec section
         deployment_label =  (str(cnf_yaml.get("vendor")) + "-" +
@@ -330,7 +345,7 @@ class KubernetesWrapperEngine(object):
             spec=client.V1PodSpec(containers=container_list))
         # Create the specification of deployment
         spec = client.ExtensionsV1beta1DeploymentSpec(
-            replicas=1,
+            replicas=2,
             template=template)
         # Instantiate the deployment object
         deployment_k8s = client.ExtensionsV1beta1Deployment(
