@@ -287,6 +287,21 @@ class KubernetesWrapperEngine(object):
         reply['vnfr'] = resp2
         return reply
    
+    def check_pod_names(self, deployment_selector, namespace, watch=False, include_uninitialized=True, pretty='True'):
+        k8s_beta = client.CoreV1Api()
+        resp = k8s_beta.list_namespaced_pod(label_selector="deployment=" + deployment_selector,
+                        namespace=namespace , async_req=False)
+        
+        # TODO: for now just 1 replica. In future we will need the all PODs names
+        cdu_reference_list = None
+        for item in resp.items:
+            cdu_reference = item.metadata.name
+        #    cdu_reference_list.append(cdu_reference)
+            
+        #LOG.info("reply: " + str(cdu_reference_list))
+        
+        return cdu_reference
+
     def deployment_object(self, DEPLOYMENT_NAME, cnf_yaml):
         """
         CNF modeling method. This build a deployment object in kubernetes
@@ -300,17 +315,25 @@ class KubernetesWrapperEngine(object):
             cdu = cnf_yaml.get('cloudnative_deployment_units')
             for cdu_obj in cdu:
                 port_list = []
+                environment = []
                 cdu_id = cdu_obj.get('id')
                 image = cdu_obj.get('image')
                 cdu_conex = cdu_obj.get('connection_points')
                 container_name = cdu_id
+                if cdu_obj.get('parameters'):
+                    env_vars = cdu_obj['parameters'].get('env')
                 if cdu_conex:
                     for po in cdu_conex:
                         port = po.get('port')
                         port_name = po.get('id')
                         port_list.append(client.V1ContainerPort(container_port=port, name=port_name))
+                if env_vars:
+                    for x, y in env_vars.items():
+                        environment.append(client.V1EnvVar(name=x, value=y))
+                environment.append(client.V1EnvVar(name="instance_uuid", value=cnf_yaml['instance_uuid']))
                 # Configureate Pod template container
                 container = client.V1Container(
+                    env=environment,
                     name=container_name,
                     image=image,
                     ports=port_list)
@@ -318,7 +341,7 @@ class KubernetesWrapperEngine(object):
         else:
             return deployment_k8s
 
-        LOG.info("Result: " + str(container_list))
+        # LOG.info("Result: " + str(container_list))
         
         # Create and configurate a spec section
         deployment_label =  (str(cnf_yaml.get("vendor")) + "-" +
