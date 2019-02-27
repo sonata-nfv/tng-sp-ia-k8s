@@ -353,7 +353,7 @@ class KubernetesWrapperEngine(object):
             spec=client.V1PodSpec(containers=container_list))
         # Create the specification of deployment
         spec = client.ExtensionsV1beta1DeploymentSpec(
-            replicas=2,
+            replicas=1,
             template=template)
         # Instantiate the deployment object
         deployment_k8s = client.ExtensionsV1beta1Deployment(
