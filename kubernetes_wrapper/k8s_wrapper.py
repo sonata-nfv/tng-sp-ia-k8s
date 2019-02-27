@@ -315,17 +315,25 @@ class KubernetesWrapperEngine(object):
             cdu = cnf_yaml.get('cloudnative_deployment_units')
             for cdu_obj in cdu:
                 port_list = []
+                environment = []
                 cdu_id = cdu_obj.get('id')
                 image = cdu_obj.get('image')
                 cdu_conex = cdu_obj.get('connection_points')
                 container_name = cdu_id
+                if cdu_obj.get('parameters'):
+                    env_vars = cdu_obj['parameters'].get('env')
                 if cdu_conex:
                     for po in cdu_conex:
                         port = po.get('port')
                         port_name = po.get('id')
                         port_list.append(client.V1ContainerPort(container_port=port, name=port_name))
+                if env_vars:
+                    for x, y in env_vars.items():
+                        environment.append(client.V1EnvVar(name=x, value=y))
+                environment.append(client.V1EnvVar(name="instance_uuid", value=cnf_yaml['uuid']))
                 # Configureate Pod template container
                 container = client.V1Container(
+                    env=environment,
                     name=container_name,
                     image=image,
                     ports=port_list)
