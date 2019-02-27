@@ -330,7 +330,7 @@ class KubernetesWrapperEngine(object):
                 if env_vars:
                     for x, y in env_vars.items():
                         environment.append(client.V1EnvVar(name=x, value=y))
-                environment.append(client.V1EnvVar(name="instance_uuid", value=cnf_yaml['uuid']))
+                environment.append(client.V1EnvVar(name="instance_uuid", value=cnf_yaml['instance_uuid']))
                 # Configureate Pod template container
                 container = client.V1Container(
                     env=environment,
