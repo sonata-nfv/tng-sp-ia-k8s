@@ -194,7 +194,9 @@ class ManoBrokerConnection(object):
                     channel.start_consuming(to_tuple=False)
                 except BaseException:
                     LOG.exception("Error in subscription thread:")
-                    channel.close()
+                    # channel.close()
+                    channel.start_consuming(to_tuple=False)
+
 
         # Attention: We crate an individual queue for each subscription to allow multiple subscriptions
         # to the same topic.
