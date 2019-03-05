@@ -175,12 +175,12 @@ class KubernetesWrapperEngine(object):
         deployment_name = None
         k8s_beta = client.ExtensionsV1beta1Api()
         try: 
-            deployment_name = k8s_beta.list_namespaced_deployment(label_selector=label, namespace=namespace, limit=1)
+            deployment_name = k8s_beta.list_namespaced_deployment(namespace=namespace, label_selector=label)
         except ApiException as e:
             LOG.error("Exception when calling ExtensionsV1beta1Api->list_namespaced_deployment: %s\n" % e)
         LOG.info(str(deployment_name))
-        return deployment_name[0]
-
+        LOG.info("METADATA_NAME: " + str(deployment_name.items[0].metadata.name))
+        return deployment_name.items[0].metadata.name
 
     def get_deployment(self, deployment_name, namespace, watch=False, include_uninitialized=True, pretty='True' ):
         """
@@ -342,6 +342,7 @@ class KubernetesWrapperEngine(object):
         LOG.info("CNFD: " + str(cnf_yaml))
         container_list = []
         deployment_k8s = None
+        env_vars = None
         if "cloudnative_deployment_units" in cnf_yaml:
             cdu = cnf_yaml.get('cloudnative_deployment_units')
             for cdu_obj in cdu:

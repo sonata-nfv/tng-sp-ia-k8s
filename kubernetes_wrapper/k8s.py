@@ -329,8 +329,8 @@ class KubernetesWrapper(object):
         corr_id = properties.correlation_id
         payload_dict = yaml.load(payload)
         LOG.info("payload_dict: " + str(payload_dict))
-        instance_uuid = payload_dict.get("instance_id")
-        deployment_name = engine.KubernetesWrapperEngine.get_deployment(self, instance_uuid, "default")
+        instance_uuid = payload_dict.get("func_id")
+        deployment_name = engine.KubernetesWrapperEngine.get_deployment_list(self, instance_uuid, "default")
         LOG.info("DEPLOYMENT NAME: " + str(deployment_name))
 
         deployment = engine.KubernetesWrapperEngine.get_deployment(self, deployment_name, "default")
