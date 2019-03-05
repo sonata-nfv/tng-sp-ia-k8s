@@ -331,7 +331,7 @@ class KubernetesWrapper(object):
         LOG.info("payload_dict: " + str(payload_dict))
         instance_uuid = payload_dict.get("instance_id")
         deployment_name = engine.KubernetesWrapperEngine.get_deployment(self, instance_uuid, "default")
-        LOG.info("DEPLOYMENT NAME: " + str(deployment))
+        LOG.info("DEPLOYMENT NAME: " + str(deployment_name))
 
         deployment = engine.KubernetesWrapperEngine.get_deployment(self, deployment_name, "default")
         LOG.info("DEPLOYMENT CONFIGURATION: " + str(deployment))
