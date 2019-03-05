@@ -333,7 +333,7 @@ class KubernetesWrapperEngine(object):
         
         return cdu_reference
 
-    def deployment_object(self, DEPLOYMENT_NAME, cnf_yaml):
+    def deployment_object(self, DEPLOYMENT_NAME, cnf_yaml, service_uuid):
         """
         CNF modeling method. This build a deployment object in kubernetes
         DEPLOYMENT_NAME: k8s deployment name
@@ -362,6 +362,8 @@ class KubernetesWrapperEngine(object):
                     for x, y in env_vars.items():
                         environment.append(client.V1EnvVar(name=x, value=y))
                 environment.append(client.V1EnvVar(name="instance_uuid", value=cnf_yaml['instance_uuid']))
+                environment.append(client.V1EnvVar(name="service_uuid", value=service_uuid))
+                
                 # Configureate Pod template container
                 container = client.V1Container(
                     env=environment,
@@ -381,7 +383,8 @@ class KubernetesWrapperEngine(object):
                              DEPLOYMENT_NAME).replace(".", "-")
         template = client.V1PodTemplateSpec(
             metadata=client.V1ObjectMeta(labels={'deployment': deployment_label, 
-                                                 'instance_uuid': cnf_yaml['instance_uuid'] }),
+                                                 'instance_uuid': cnf_yaml['instance_uuid'],
+                                                 'service_uuid': service_uuid }),
             spec=client.V1PodSpec(containers=container_list))
         # Create the specification of deployment
         spec = client.ExtensionsV1beta1DeploymentSpec(
