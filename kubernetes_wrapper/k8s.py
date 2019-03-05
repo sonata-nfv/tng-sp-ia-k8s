@@ -588,7 +588,7 @@ class KubernetesWrapper(object):
         """
         function = self.functions[func_id]
         # LOG.info("function: " + str(self.functions))
-        obj_deployment = engine.KubernetesWrapperEngine.deployment_object(self, function['vnfd']['instance_uuid'], function['vnfd'])
+        obj_deployment = engine.KubernetesWrapperEngine.deployment_object(self, function['vnfd']['instance_uuid'], function['vnfd'], function['service_instance_id'])
         # LOG.info("Reply from Kubernetes" + str(obj_deployment))
 
         deployment_selector = obj_deployment.spec.template.metadata.labels.get("deployment")
