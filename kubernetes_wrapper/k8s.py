@@ -605,7 +605,7 @@ class KubernetesWrapper(object):
         service = engine.KubernetesWrapperEngine.create_service(self, obj_service, "default")
         # LOG.debug("SERVICE CREATION REPLY: " + str(service))
 
-        cdu_reference = engine.KubernetesWrapperEngine.check_pod_names(self, deployment_selector, namespace="default")
+        # cdu_reference = engine.KubernetesWrapperEngine.check_pod_names(self, deployment_selector, namespace="default")
 
         outg_message = {}
         outg_message['vimUuid'] = function['vim_uuid']
@@ -628,7 +628,7 @@ class KubernetesWrapper(object):
             cloudnative_deployment_unit["id"] = cdu["id"].split("-")[0]
             cloudnative_deployment_unit['image'] = cdu['image']
             cloudnative_deployment_unit['vim_id'] = function['vim_uuid']
-            cloudnative_deployment_unit['cdu_reference'] = cdu_reference
+            cloudnative_deployment_unit['cdu_reference'] = cdu["id"]
             cloudnative_deployment_unit['number_of_instances'] = 1                  # TODO: update this value
             cloudnative_deployment_unit['load_balancer_ip'] = service.get('ip_mapping')[0]
             cloudnative_deployment_unit['connection_points'] = []
