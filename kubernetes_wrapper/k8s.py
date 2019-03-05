@@ -166,7 +166,10 @@ class KubernetesWrapper(object):
         LOG.info(t.CNF_PREPARE + " Created")
          # The topic on which list the cluster resources.
         self.manoconn.subscribe(self.function_list_resources, t.NODE_LIST)
-        LOG.info(t.NODE_LIST + " Created")        
+        LOG.info(t.NODE_LIST + " Created")
+        # The topic on which list the function configuration
+        self.manoconn.subscribe(self.configure_function, t.CNF_CONFIGURE)
+        LOG.info(t.CNF_CONFIGURE + " Created")      
 
 ##########################
 # K8S Threading management
@@ -316,6 +319,30 @@ class KubernetesWrapper(object):
                              payload,
                              correlation_id=corr_id)
         LOG.info("Replayed preparation message to MANO: " +  str(payload))
+
+    def configure_function(self, ch, method, properties, payload):
+        # Don't trigger on self created messages
+        if self.name == properties.app_id:
+            return 
+
+        # Extract the correlation id
+        corr_id = properties.correlation_id
+        payload_dict = yaml.load(payload)
+        LOG.info("payload_dict: " + str(payload_dict))
+        instance_uuid = payload_dict.get("instance_id")
+        deployment_name = engine.KubernetesWrapperEngine.get_deployment(self, instance_uuid, "default")
+        LOG.info("DEPLOYMENT NAME: " + str(deployment))
+
+        deployment = engine.KubernetesWrapperEngine.get_deployment(self, deployment_name, "default")
+        LOG.info("DEPLOYMENT CONFIGURATION: " + str(deployment))
+
+        payload = '{"request_status": "COMPLETED", "message": ""}'
+
+        # Contact the IA
+        self.manoconn.notify(properties.reply_to,
+                             payload,
+                             correlation_id=corr_id)
+        LOG.info("Replayed configuration message to MANO: " +  str(payload))
 
 
     def function_instance_create(self, ch, method, properties, payload):

@@ -166,6 +166,37 @@ class KubernetesWrapperEngine(object):
                 else:
                     LOG.info("K8S Cluster is not configured")
 
+    def get_deployment_list(self, label, namespace, watch=False, include_uninitialized=True, pretty='True' ):
+        """
+        CNF get deployment list method. This retrieve the list of deployments based on a label
+        label: k8s deployment name
+        namespace: Namespace where the deployment is deployed
+        """
+        deployment_name = None
+        k8s_beta = client.ExtensionsV1beta1Api()
+        try: 
+            deployment_name = k8s_beta.list_namespaced_deployment(label_selector=label, namespace=namespace, limit=1)
+        except ApiException as e:
+            LOG.error("Exception when calling ExtensionsV1beta1Api->list_namespaced_deployment: %s\n" % e)
+        LOG.info(str(deployment_name))
+        return deployment_name[0]
+
+
+    def get_deployment(self, deployment_name, namespace, watch=False, include_uninitialized=True, pretty='True' ):
+        """
+        CNF get deployment method. This retrieve the deployment information object in kubernetes
+        deployment: k8s deployment name
+        namespace: Namespace where the deployment is deployed
+        """
+        deployment = None
+        k8s_beta = client.ExtensionsV1beta1Api()
+        try:
+            deployment = k8s_beta.read_namespaced_deployment(name=deployment_name, namespace=namespace, exact=False, export=False)
+        except ApiException as e:
+            LOG.error("Exception when calling ExtensionsV1beta1Api->read_namespaced_deployment: %s\n" % e)
+        LOG.info(str(deployment))        
+        return deployment
+    
     def create_deployment(self, deployment, namespace, watch=False, include_uninitialized=True, pretty='True' ):
         """
         CNF Instantiation method. This schedule a deployment object in kubernetes
@@ -349,7 +380,8 @@ class KubernetesWrapperEngine(object):
                              str(cnf_yaml.get("version")) + "-" +
                              DEPLOYMENT_NAME).replace(".", "-")
         template = client.V1PodTemplateSpec(
-            metadata=client.V1ObjectMeta(labels={'deployment': deployment_label }),
+            metadata=client.V1ObjectMeta(labels={'deployment': deployment_label, 
+                                                 'instance_uuid': cnf_yaml['instance_uuid'] }),
             spec=client.V1PodSpec(containers=container_list))
         # Create the specification of deployment
         spec = client.ExtensionsV1beta1DeploymentSpec(
