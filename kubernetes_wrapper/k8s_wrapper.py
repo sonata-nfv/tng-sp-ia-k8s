@@ -166,6 +166,47 @@ class KubernetesWrapperEngine(object):
                 else:
                     LOG.info("K8S Cluster is not configured")
 
+    def get_deployment_list(self, label, namespace, watch=False, include_uninitialized=True, pretty='True' ):
+        """
+        CNF get deployment list method. This retrieve the list of deployments based on a label
+        label: k8s deployment name
+        namespace: Namespace where the deployment is deployed
+        """
+        deployment_name = None
+        k8s_beta = client.ExtensionsV1beta1Api()
+        try: 
+            deployment_name = k8s_beta.list_namespaced_deployment(namespace=namespace, label_selector=label)
+        except ApiException as e:
+            LOG.error("Exception when calling ExtensionsV1beta1Api->list_namespaced_deployment: %s\n" % e)
+        # LOG.info(str(deployment_name).replace("'","\"").replace(" ","").replace("\n",""))
+        # LOG.info("METADATA_NAME: " + str(deployment_name.items[0].metadata.name))
+        return deployment_name.items[0].metadata.name
+
+    def create_patch_deployment(self, deployment_name, deployment_namespace, body):
+        deployment_name = None
+        k8s_beta = client.ExtensionsV1beta1Api()
+        try:
+            patch = k8s_beta.patch_namespaced_deployment(name=deployment_name, namespace=deployment_namespace, body=body, pretty='true')
+        except ApiException as e:
+            LOG.error("Exception when calling ExtensionsV1beta1Api->:patch_namespaced_deployment %s\n" % e)
+        return patch
+
+
+    def get_deployment(self, deployment_name, namespace, watch=False, include_uninitialized=True, pretty='True' ):
+        """
+        CNF get deployment method. This retrieve the deployment information object in kubernetes
+        deployment: k8s deployment name
+        namespace: Namespace where the deployment is deployed
+        """
+        deployment = None
+        k8s_beta = client.ExtensionsV1beta1Api()
+        try:
+            deployment = k8s_beta.read_namespaced_deployment(name=deployment_name, namespace=namespace, exact=False, export=False)
+        except ApiException as e:
+            LOG.error("Exception when calling ExtensionsV1beta1Api->read_namespaced_deployment: %s\n" % e)
+        # LOG.info(str(deployment))        
+        return deployment
+    
     def create_deployment(self, deployment, namespace, watch=False, include_uninitialized=True, pretty='True' ):
         """
         CNF Instantiation method. This schedule a deployment object in kubernetes
@@ -302,7 +343,7 @@ class KubernetesWrapperEngine(object):
         
         return cdu_reference
 
-    def deployment_object(self, DEPLOYMENT_NAME, cnf_yaml):
+    def deployment_object(self, DEPLOYMENT_NAME, cnf_yaml, service_uuid):
         """
         CNF modeling method. This build a deployment object in kubernetes
         DEPLOYMENT_NAME: k8s deployment name
@@ -311,6 +352,7 @@ class KubernetesWrapperEngine(object):
         LOG.info("CNFD: " + str(cnf_yaml))
         container_list = []
         deployment_k8s = None
+        env_vars = None
         if "cloudnative_deployment_units" in cnf_yaml:
             cdu = cnf_yaml.get('cloudnative_deployment_units')
             for cdu_obj in cdu:
@@ -331,6 +373,8 @@ class KubernetesWrapperEngine(object):
                     for x, y in env_vars.items():
                         environment.append(client.V1EnvVar(name=x, value=y))
                 environment.append(client.V1EnvVar(name="instance_uuid", value=cnf_yaml['instance_uuid']))
+                environment.append(client.V1EnvVar(name="service_uuid", value=service_uuid))
+                
                 # Configureate Pod template container
                 container = client.V1Container(
                     env=environment,
@@ -349,7 +393,9 @@ class KubernetesWrapperEngine(object):
                              str(cnf_yaml.get("version")) + "-" +
                              DEPLOYMENT_NAME).replace(".", "-")
         template = client.V1PodTemplateSpec(
-            metadata=client.V1ObjectMeta(labels={'deployment': deployment_label }),
+            metadata=client.V1ObjectMeta(labels={'deployment': deployment_label, 
+                                                 'instance_uuid': cnf_yaml['instance_uuid'],
+                                                 'service_uuid': service_uuid }),
             spec=client.V1PodSpec(containers=container_list))
         # Create the specification of deployment
         spec = client.ExtensionsV1beta1DeploymentSpec(

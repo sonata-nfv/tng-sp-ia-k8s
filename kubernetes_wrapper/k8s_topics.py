@@ -42,6 +42,7 @@ CNF_DEPLOY = 'infrastructure.k8s.function.deploy'
 CNF_DEPLOY_RESPONSE = 'nbi.infrastructure.k8s.function.deploy'
 CNF_REMOVE = 'infrastructure.k8s.function.remove'
 CNF_PREPARE = 'infrastructure.k8s.service.prepare'
+CNF_CONFIGURE = 'infrastructure.k8s.function.configure'
 
 # Catalogue urls
 cat_path = os.environ.get("cat_path").strip("/")

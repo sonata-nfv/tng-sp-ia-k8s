@@ -166,7 +166,10 @@ class KubernetesWrapper(object):
         LOG.info(t.CNF_PREPARE + " Created")
          # The topic on which list the cluster resources.
         self.manoconn.subscribe(self.function_list_resources, t.NODE_LIST)
-        LOG.info(t.NODE_LIST + " Created")        
+        LOG.info(t.NODE_LIST + " Created")
+        # The topic on which list the function configuration
+        self.manoconn.subscribe(self.configure_function, t.CNF_CONFIGURE)
+        LOG.info(t.CNF_CONFIGURE + " Created")      
 
 ##########################
 # K8S Threading management
@@ -316,6 +319,34 @@ class KubernetesWrapper(object):
                              payload,
                              correlation_id=corr_id)
         LOG.info("Replayed preparation message to MANO: " +  str(payload))
+
+    def configure_function(self, ch, method, properties, payload):
+        # Don't trigger on self created messages
+        if self.name == properties.app_id:
+            return 
+
+        # Extract the correlation id
+        corr_id = properties.correlation_id
+        payload_dict = yaml.load(payload)
+        LOG.info("payload_dict: " + str(payload_dict))
+        instance_uuid = payload_dict.get("func_id")
+        deployment_name = engine.KubernetesWrapperEngine.get_deployment_list(self, str("instance_uuid=" + instance_uuid), "default")
+        LOG.info("DEPLOYMENT NAME: " + str(deployment_name))
+
+        deployment = engine.KubernetesWrapperEngine.get_deployment(self, deployment_name, "default")
+        LOG.info("DEPLOYMENT CONFIGURATION: " + str(deployment).replace("'","\"").replace(" ","").replace("\n",""))
+
+        # deployment.items[0].spec.template.spec.containers
+
+        # patch = engine.KubernetesWrapperEngine.create_patch_deployment(self, deployment_name, "default", update )
+
+        payload = '{"request_status": "COMPLETED", "message": ""}'
+
+        # Contact the IA
+        self.manoconn.notify(properties.reply_to,
+                             payload,
+                             correlation_id=corr_id)
+        LOG.info("Replayed configuration message to MANO: " +  str(payload).replace("'","\"").replace(" ","").replace("\n",""))
 
 
     def function_instance_create(self, ch, method, properties, payload):
@@ -561,7 +592,7 @@ class KubernetesWrapper(object):
         """
         function = self.functions[func_id]
         # LOG.info("function: " + str(self.functions))
-        obj_deployment = engine.KubernetesWrapperEngine.deployment_object(self, function['vnfd']['instance_uuid'], function['vnfd'])
+        obj_deployment = engine.KubernetesWrapperEngine.deployment_object(self, function['vnfd']['instance_uuid'], function['vnfd'], function['service_instance_id'])
         # LOG.info("Reply from Kubernetes" + str(obj_deployment))
 
         deployment_selector = obj_deployment.spec.template.metadata.labels.get("deployment")
@@ -578,7 +609,7 @@ class KubernetesWrapper(object):
         service = engine.KubernetesWrapperEngine.create_service(self, obj_service, "default")
         # LOG.debug("SERVICE CREATION REPLY: " + str(service))
 
-        cdu_reference = engine.KubernetesWrapperEngine.check_pod_names(self, deployment_selector, namespace="default")
+        # cdu_reference = engine.KubernetesWrapperEngine.check_pod_names(self, deployment_selector, namespace="default")
 
         outg_message = {}
         outg_message['vimUuid'] = function['vim_uuid']
@@ -601,7 +632,7 @@ class KubernetesWrapper(object):
             cloudnative_deployment_unit["id"] = cdu["id"].split("-")[0]
             cloudnative_deployment_unit['image'] = cdu['image']
             cloudnative_deployment_unit['vim_id'] = function['vim_uuid']
-            cloudnative_deployment_unit['cdu_reference'] = cdu_reference
+            cloudnative_deployment_unit['cdu_reference'] = cdu["id"]
             cloudnative_deployment_unit['number_of_instances'] = 1                  # TODO: update this value
             cloudnative_deployment_unit['load_balancer_ip'] = service.get('ip_mapping')[0]
             cloudnative_deployment_unit['connection_points'] = []
