@@ -178,9 +178,19 @@ class KubernetesWrapperEngine(object):
             deployment_name = k8s_beta.list_namespaced_deployment(namespace=namespace, label_selector=label)
         except ApiException as e:
             LOG.error("Exception when calling ExtensionsV1beta1Api->list_namespaced_deployment: %s\n" % e)
-        LOG.info(str(deployment_name))
-        LOG.info("METADATA_NAME: " + str(deployment_name.items[0].metadata.name))
+        # LOG.info(str(deployment_name).replace("'","\"").replace(" ","").replace("\n",""))
+        # LOG.info("METADATA_NAME: " + str(deployment_name.items[0].metadata.name))
         return deployment_name.items[0].metadata.name
+
+    def create_patch_deployment(self, deployment_name, deployment_namespace, body):
+        deployment_name = None
+        k8s_beta = client.ExtensionsV1beta1Api()
+        try:
+            patch = k8s_beta.patch_namespaced_deployment(name=deployment_name, namespace=deployment_namespace, body=body, pretty='true')
+        except ApiException as e:
+            LOG.error("Exception when calling ExtensionsV1beta1Api->:patch_namespaced_deployment %s\n" % e)
+        return patch
+
 
     def get_deployment(self, deployment_name, namespace, watch=False, include_uninitialized=True, pretty='True' ):
         """
@@ -194,7 +204,7 @@ class KubernetesWrapperEngine(object):
             deployment = k8s_beta.read_namespaced_deployment(name=deployment_name, namespace=namespace, exact=False, export=False)
         except ApiException as e:
             LOG.error("Exception when calling ExtensionsV1beta1Api->read_namespaced_deployment: %s\n" % e)
-        LOG.info(str(deployment))        
+        # LOG.info(str(deployment))        
         return deployment
     
     def create_deployment(self, deployment, namespace, watch=False, include_uninitialized=True, pretty='True' ):

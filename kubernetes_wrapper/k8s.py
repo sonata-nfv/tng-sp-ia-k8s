@@ -330,11 +330,15 @@ class KubernetesWrapper(object):
         payload_dict = yaml.load(payload)
         LOG.info("payload_dict: " + str(payload_dict))
         instance_uuid = payload_dict.get("func_id")
-        deployment_name = engine.KubernetesWrapperEngine.get_deployment_list(self, instance_uuid, "default")
+        deployment_name = engine.KubernetesWrapperEngine.get_deployment_list(self, str("instance_uuid=" + instance_uuid), "default")
         LOG.info("DEPLOYMENT NAME: " + str(deployment_name))
 
         deployment = engine.KubernetesWrapperEngine.get_deployment(self, deployment_name, "default")
-        LOG.info("DEPLOYMENT CONFIGURATION: " + str(deployment))
+        LOG.info("DEPLOYMENT CONFIGURATION: " + str(deployment).replace("'","\"").replace(" ","").replace("\n",""))
+
+        # deployment.items[0].spec.template.spec.containers
+
+        # patch = engine.KubernetesWrapperEngine.create_patch_deployment(self, deployment_name, "default", update )
 
         payload = '{"request_status": "COMPLETED", "message": ""}'
 
@@ -342,7 +346,7 @@ class KubernetesWrapper(object):
         self.manoconn.notify(properties.reply_to,
                              payload,
                              correlation_id=corr_id)
-        LOG.info("Replayed configuration message to MANO: " +  str(payload))
+        LOG.info("Replayed configuration message to MANO: " +  str(payload).replace("'","\"").replace(" ","").replace("\n",""))
 
 
     def function_instance_create(self, ch, method, properties, payload):
