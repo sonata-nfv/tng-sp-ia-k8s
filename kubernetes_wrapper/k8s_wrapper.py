@@ -191,6 +191,47 @@ class KubernetesWrapperEngine(object):
             LOG.error("Exception when calling ExtensionsV1beta1Api->:patch_namespaced_deployment %s\n" % e)
         return patch
 
+    def create_configmap(self, config_map_id, instance_uuid, env_vars, namespace = "default"):
+        data = []
+        LOG.info("Vars received: " + str(env_vars))
+        k8s_beta = client.CoreV1Api()
+        metadata = client.V1ObjectMeta(name = config_map_id, namespace = namespace,
+                                       labels = {"instance_uuid": instance_uuid})
+        configmap = None
+        for x, y in env_vars.items():
+            data.append(name=x, value=y)
+        LOG.info("Data dict: " + str(data))
+
+        if isinstance(data, dict):
+            body = client.V1ConfigMap(data = data, metadata = metadata)
+            try:
+                configmap = k8s_beta.create_namespaced_config_map(config_map_id, body)
+            except ApiException as e:
+                LOG.error("Exception when calling V1ConfigMap->create_namespaced_config_map: %s\n" % e)
+
+        LOG.info("Configmap:" + str(configmap))
+        return configmap
+
+    def overwrite_configmap(self, config_map_id, configmap, instance_uuid, env_vars, namespace = "default"):
+        LOG.info("Vars received: " + str(env_vars))
+        LOG.info("config map: " + str(configmap))
+
+        k8s_beta = client.CoreV1Api()
+        for x, y in env_vars.items():
+            LOG.info("Name: " + str(x))
+            LOG.info("value: " + str(x))
+            LOG.info("data: " + str(configmap))
+            configmap.data.update(name=x, value=y)
+        LOG.info("Data dict: " + str(configmap))
+
+        if isinstance(configmap, dict):
+            body = configmap
+            try:
+                configmap_updated = k8s_beta.patch_namespaced_config_map(name = config_map_id, namespace = namespace, body = body)
+            except ApiException as e:
+                LOG.error("Exception when calling V1ConfigMap->create_namespaced_config_map: %s\n" % e)
+        LOG.info("Configmap:" + str(configmap_updated))
+        return configmap_updated
 
     def get_deployment(self, deployment_name, namespace, watch=False, include_uninitialized=True, pretty='True' ):
         """
@@ -204,9 +245,24 @@ class KubernetesWrapperEngine(object):
             deployment = k8s_beta.read_namespaced_deployment(name=deployment_name, namespace=namespace, exact=False, export=False)
         except ApiException as e:
             LOG.error("Exception when calling ExtensionsV1beta1Api->read_namespaced_deployment: %s\n" % e)
-        # LOG.info(str(deployment))        
+        # LOG.info(str(deployment))
         return deployment
-    
+
+    def get_configmap(self, config_map_id, namespace, watch=False, include_uninitialized=True, pretty='True' ):
+        """
+        CNF get configmap method. This retrieve the configmap information object in kubernetes
+        config_map_id: k8s config map id
+        namespace: Namespace where the deployment is deployed
+        """
+        configmap = None
+        k8s_beta = client.CoreV1Api()
+        try:
+            deployment = k8s_beta.read_namespaced_config_map(name = config_map_id, namespace = namespace, exact=False, export=False)
+        except ApiException as e:
+            LOG.error("Exception when calling ExtensionsV1beta1Api->read_namespaced_deployment: %s\n" % e)
+        # LOG.info(str(deployment))
+        return configmap
+
     def create_deployment(self, deployment, namespace, watch=False, include_uninitialized=True, pretty='True' ):
         """
         CNF Instantiation method. This schedule a deployment object in kubernetes
@@ -353,6 +409,8 @@ class KubernetesWrapperEngine(object):
         container_list = []
         deployment_k8s = None
         env_vars = None
+        env_from = None
+        instance_uuid = cnf_yaml['instance_uuid']
         if "cloudnative_deployment_units" in cnf_yaml:
             cdu = cnf_yaml.get('cloudnative_deployment_units')
             for cdu_obj in cdu:
@@ -362,6 +420,7 @@ class KubernetesWrapperEngine(object):
                 image = cdu_obj.get('image')
                 cdu_conex = cdu_obj.get('connection_points')
                 container_name = cdu_id
+                config_map_id = str(cdu_id) + str(instance_uuid)
                 if cdu_obj.get('parameters'):
                     env_vars = cdu_obj['parameters'].get('env')
                 if cdu_conex:
@@ -369,18 +428,23 @@ class KubernetesWrapperEngine(object):
                         port = po.get('port')
                         port_name = po.get('id')
                         port_list.append(client.V1ContainerPort(container_port=port, name=port_name))
+
+                # Environment variables from descriptor
                 if env_vars:
-                    for x, y in env_vars.items():
-                        environment.append(client.V1EnvVar(name=x, value=y))
-                environment.append(client.V1EnvVar(name="instance_uuid", value=cnf_yaml['instance_uuid']))
+                    config_map = self.create_configmap(config_map_id, env_vars, namespace = "default")
+                env_from = client.V1EnvFromSource(config_map_ref = client.V1ConfigMapEnvSource(name = config_map.metadata.name))
+
+                # Default static environment variables
+                environment.append(client.V1EnvVar(name="instance_uuid", value=instance_uuid))
                 environment.append(client.V1EnvVar(name="service_uuid", value=service_uuid))
-                
+
                 # Configureate Pod template container
                 container = client.V1Container(
-                    env=environment,
-                    name=container_name,
-                    image=image,
-                    ports=port_list)
+                    env = environment,
+                    name = container_name,
+                    image = image,
+                    ports = port_list,
+                    env_from = env_from)
                 container_list.append(container)
         else:
             return deployment_k8s
