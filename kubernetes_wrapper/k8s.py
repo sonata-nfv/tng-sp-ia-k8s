@@ -328,18 +328,31 @@ class KubernetesWrapper(object):
         # Extract the correlation id
         corr_id = properties.correlation_id
         payload_dict = yaml.load(payload)
-        LOG.info("payload_dict: " + str(payload_dict))
         instance_uuid = payload_dict.get("func_id")
+        LOG.info("payload_dict: " + str(payload_dict))
         deployment_name = engine.KubernetesWrapperEngine.get_deployment_list(self, str("instance_uuid=" + instance_uuid), "default")
         LOG.info("DEPLOYMENT NAME: " + str(deployment_name))
 
         deployment = engine.KubernetesWrapperEngine.get_deployment(self, deployment_name, "default")
         LOG.info("DEPLOYMENT CONFIGURATION: " + str(deployment).replace("'","\"").replace(" ","").replace("\n",""))
 
-        # deployment.items[0].spec.template.spec.containers
+        # Get CNF configmap
+        if payload_dict.get("envs"):
+            for env_vars in payload_dict["envs"]:
+                config_map_id = env_vars["cdu_id"]
+                if env_vars.get("envs"):
+                    configmap = engine.KubernetesWrapperEngine.get_configmap(self, config_map_id, "default")
+                    LOG.info("Configmap:" + str(configmap))
+                    if configmap:
+                        engine.KubernetesWrapperEngine.overwrite_configmap(self, config_map_id, configmap, instance_uuid, env_vars["envs"], "default")
+                    else:
+                        engine.KubernetesWrapperEngine.create_configmap(self, config_map_id, instance_uuid, env_vars["envs"], namespace = "default")
 
-        # patch = engine.KubernetesWrapperEngine.create_patch_deployment(self, deployment_name, "default", update )
-
+        LOG.info("Deployment name: "+ str(deployment_name))
+        LOG.info("deployment: " + str(deployment).replace("'","\"").replace(" ","").replace("\n",""))
+        # Trigger Rolling Update
+        patch = engine.KubernetesWrapperEngine.create_patch_deployment(self, deployment_name, "default")
+        LOG.info("PATCH: " + str(patch).replace("'","\"").replace(" ","").replace("\n",""))
         payload = '{"request_status": "COMPLETED", "message": ""}'
 
         # Contact the IA
