@@ -422,7 +422,7 @@ class KubernetesWrapperEngine(object):
         LOG.info("k8s service list" + str(k8s_services))
         for k8s_service in k8s_services:
             try: 
-                resp = k8s_beta.delete_namespaced_service(namespace, name=k8s_service)
+                resp = k8s_beta.delete_namespaced_service(name=k8s_service, namespace=namespace )
             except ApiException as e:
                 LOG.info("Exception when calling CoreV1Api->delete_namespaced_service: " + str(e))            
                 status = False

@@ -434,7 +434,7 @@ class KubernetesWrapper(object):
         corr_id = properties.correlation_id
         payload_dict = yaml.load(payload)
         instance_uuid = payload_dict.get("func_id")
-        service_uuid = self.functions['instance_uuid']['serv_id']
+        service_uuid = self.functions[instance_uuid]['serv_id']
         LOG.info("payload_dict: " + str(payload_dict))
         deployment_name = engine.KubernetesWrapperEngine.get_deployment_list(self, str("instance_uuid=" + instance_uuid), "default")
         LOG.info("DEPLOYMENT NAME: " + str(deployment_name))
