@@ -673,8 +673,6 @@ class KubernetesWrapper(object):
         message = yaml.load(payload)
         LOG.info("payload: " + str(message).replace("'","\"").replace(" ","").replace("\n",""))
 
-        LOG.info("properties: " + str(properties).replace("'","\"").replace(" ","").replace("\n",""))
-
         # Check if payload is ok.
 
         # Extract the correlation id
@@ -887,12 +885,13 @@ class KubernetesWrapper(object):
 
         services = self.services[service_id]
 
-        service, message = engine.KubernetesWrapperEngine.remove_service(self, service_id, "default", services['vim_uuid'])
+        message = engine.KubernetesWrapperEngine.remove_service(self, service_id, "default", services['vim_uuid'])
 
-        LOG.info("SERVICE WAS REMOVED")
+        if message:
+            LOG.info("Error removing service: " + str(message))
+        else:
+            LOG.info("SERVICE WAS REMOVED")
 
-        LOG.info("service:" + (service))
-        LOG.info("message: " + str(message))
         corr_id = str(uuid.uuid4())
         self.services[service_id]['act_corr_id'] = corr_id
 

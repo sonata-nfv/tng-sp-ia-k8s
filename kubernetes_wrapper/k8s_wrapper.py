@@ -399,7 +399,7 @@ class KubernetesWrapperEngine(object):
         # Delete deployment
         try: 
             resp = k8s_beta.delete_collection_namespaced_deployment(namespace, label_selector="service_uuid=" + service_uuid)
-            LOG.info("remove_collection_deployments: " + str(resp))
+            LOG.info("remove_collection_deployments: " + str(resp).replace("'","\"").replace(" ","").replace("\n",""))
         except ApiException as e:
             print("Exception when calling ExtensionsV1beta1Api->delete_collection_namespaced_deployment: " + str(e))
             status = False
@@ -411,7 +411,7 @@ class KubernetesWrapperEngine(object):
         try: 
             resp = k8s_beta.list_namespaced_service(namespace, label_selector="service_uuid=" + service_uuid)
         except ApiException as e:
-            LOG.info("Exception when calling CoreV1Api->list_namespaced_services: " + str(e))
+            LOG.info("Exception when calling CoreV1Api->list_namespaced_services: " + str(e).replace("'","\"").replace(" ","").replace("\n",""))
             status = False
             message = str(e)
 
@@ -419,12 +419,14 @@ class KubernetesWrapperEngine(object):
         for k8s_service_list in resp.items:
             k8s_services.append(k8s_service_list.metadata.name)
 
-        LOG.info("k8s service list" + str(k8s_services))
+        LOG.info("k8s service list" + str(k8s_services).replace("'","\"").replace(" ","").replace("\n",""))
+        k8s_beta = client.CoreV1Api()
+        body = client.V1DeleteOptions()
         for k8s_service in k8s_services:
             try: 
-                resp = k8s_beta.delete_namespaced_service(name=k8s_service, namespace=namespace )
+                resp = k8s_beta.delete_namespaced_service(k8s_service, namespace, body)
             except ApiException as e:
-                LOG.info("Exception when calling CoreV1Api->delete_namespaced_service: " + str(e))            
+                LOG.info("Exception when calling CoreV1Api->delete_namespaced_service: " + str(e).replace("'","\"").replace(" ","").replace("\n",""))
                 status = False
                 message = str(e)                
 
@@ -434,11 +436,11 @@ class KubernetesWrapperEngine(object):
         try: 
             resp = k8s_beta.delete_collection_namespaced_config_map(namespace, label_selector="service_uuid=" + service_uuid)
         except ApiException as e:
-            LOG.info("Exception when calling CoreV1Api->delete_collection_namespaced_config_map: " + str(e))
+            LOG.info("Exception when calling CoreV1Api->delete_collection_namespaced_config_map: " + str(e).replace("'","\"").replace(" ","").replace("\n",""))
             status = False
             message = str(e)
 
-        return status, message
+        return message
 
     def check_pod_names(self, deployment_selector, namespace, watch=False, include_uninitialized=True, pretty='True'):
         k8s_beta = client.CoreV1Api()
