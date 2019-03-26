@@ -434,6 +434,7 @@ class KubernetesWrapper(object):
         corr_id = properties.correlation_id
         payload_dict = yaml.load(payload)
         instance_uuid = payload_dict.get("func_id")
+        service_uuid = self.functions['instance_uuid']['serv_id']
         LOG.info("payload_dict: " + str(payload_dict))
         deployment_name = engine.KubernetesWrapperEngine.get_deployment_list(self, str("instance_uuid=" + instance_uuid), "default")
         LOG.info("DEPLOYMENT NAME: " + str(deployment_name))
@@ -451,7 +452,7 @@ class KubernetesWrapper(object):
                     if configmap:
                         engine.KubernetesWrapperEngine.overwrite_configmap(self, config_map_id, configmap, instance_uuid, env_vars["envs"], "default")
                     else:
-                        engine.KubernetesWrapperEngine.create_configmap(self, config_map_id, instance_uuid, env_vars["envs"], namespace = "default")
+                        engine.KubernetesWrapperEngine.create_configmap(self, config_map_id, instance_uuid, env_vars["envs"], service_uuid, namespace = "default")
 
         LOG.info("Deployment name: "+ str(deployment_name))
         LOG.info("deployment: " + str(deployment).replace("'","\"").replace(" ","").replace("\n",""))
@@ -782,7 +783,7 @@ class KubernetesWrapper(object):
         deployment_selector = obj_deployment.spec.template.metadata.labels.get("deployment")
         # LOG.info("Deployment Selector: " + str(deployment_selector))
         # LOG.info("function[vnfd]:" + str(function['vnfd']))
-        obj_service = engine.KubernetesWrapperEngine.service_object(self, function['vnfd']['instance_uuid'], function['vnfd'], deployment_selector)
+        obj_service = engine.KubernetesWrapperEngine.service_object(self, function['vnfd']['instance_uuid'], function['vnfd'], deployment_selector, function['service_instance_id'])
         # LOG.info("Service Object:" + str(obj_service))
 
         LOG.info("Creating a Deployment")
@@ -857,7 +858,6 @@ class KubernetesWrapper(object):
         This method request the removal of a vnf
         """
 
-        function = self.functions[func_id]
         outg_message = {}
         # outg_message["service_instance_id"] = function['serv_id']
         # outg_message['vim_uuid'] = function['vim_uuid']
@@ -886,15 +886,13 @@ class KubernetesWrapper(object):
         """
 
         services = self.services[service_id]
-        LOG.info(services)
-        outg_message = {}
-        outg_message['request_status'] = "COMPLETED"
-        outg_message['message'] = ""
-        
-        # service = engine.KubernetesWrapperEngine.remove_service(self, service_id, services['vim_uuid'])
+
+        service, message = engine.KubernetesWrapperEngine.remove_service(self, service_id, "default", services['vim_uuid'])
 
         LOG.info("SERVICE WAS REMOVED")
 
+        LOG.info("service:" + (service))
+        LOG.info("message: " + str(message))
         corr_id = str(uuid.uuid4())
         self.services[service_id]['act_corr_id'] = corr_id
 
