@@ -324,11 +324,11 @@ class KubernetesWrapper(object):
             if self.services[serv_id]['pause_chain']:
                 self.services[serv_id]['pause_chain'] = False
             else:
-                self.start_next_task(serv_id)
+                self.start_next_service_task(serv_id)
         else:
             del self.services[serv_id]
 
-    def add_service_to_ledger(self, payload, corr_id, serv_id, topic):
+    def add_service_to_ledger(self, payload, corr_id, serv_id, topic, properties):
         """
         This method adds new services with their specifics to the ledger,
         so other functions can use this information.
@@ -344,6 +344,7 @@ class KubernetesWrapper(object):
 
         # Add the topic of the call
         self.services[serv_id]['topic'] = topic
+        self.services[serv_id]['properties'] = properties
 
         # Add to correlation id to the ledger
         self.services[serv_id]['orig_corr_id'] = corr_id
@@ -667,7 +668,6 @@ class KubernetesWrapper(object):
         if self.name == properties.app_id:
             return
 
-
         LOG.info("Service instance remove request received.")
         message = yaml.load(payload)
         LOG.info("payload: " + str(message).replace("'","\"").replace(" ","").replace("\n",""))
@@ -695,7 +695,7 @@ class KubernetesWrapper(object):
             return
         service_id = message['instance_uuid']       
 
-        self.add_service_to_ledger(message, corr_id, service_id, t.CNF_SERVICE_REMOVE)
+        self.add_service_to_ledger(message, corr_id, service_id, t.CNF_SERVICE_REMOVE, properties)
 
         LOG.info("service" + str(service_id))
         service = self.services[service_id]
@@ -712,9 +712,6 @@ class KubernetesWrapper(object):
         LOG.info("Service " + service_id + msg)
         # Start the chain of tasks
         self.start_next_service_task(service_id)
-
-        return self.services[service_id]['schedule']
-
 
     def no_resp_needed(self, ch, method, prop, payload):
         """
@@ -883,9 +880,6 @@ class KubernetesWrapper(object):
                              payload,
                              correlation_id=corr_id)
 
-        # Pause the chain of tasks to wait for response
-        self.functions[func_id]['pause_chain'] = True
-
     def remove_service(self, service_id):
         """
         This method request the removal of service
@@ -894,26 +888,15 @@ class KubernetesWrapper(object):
         services = self.services[service_id]
         LOG.info(services)
         outg_message = {}
-        outg_message["service_instance_id"] = services['instance_uuid']
-        outg_message['vim_uuid'] = services['vim_uuid']
+        outg_message['request_status'] = "COMPLETED"
+        outg_message['message'] = ""
+        
+        # service = engine.KubernetesWrapperEngine.remove_service(self, service_id, services['vim_uuid'])
 
         LOG.info("SERVICE WAS REMOVED")
 
-        payload = yaml.dump(outg_message)
-
         corr_id = str(uuid.uuid4())
         self.services[service_id]['act_corr_id'] = corr_id
-
-        msg = ": IA contacted for service removal."
-        LOG.info("Service " + service_id + msg)
-        LOG.debug("Payload of request: " + payload)
-        # Contact the IA
-        self.manoconn.notify(t.CNF_SERVICE_REMOVE,
-                             payload,
-                             correlation_id=corr_id)
-
-        # Pause the chain of tasks to wait for response
-        self.services[service_id]['pause_chain'] = True
 
     def ia_remove_response(self, ch, method, prop, payload):
         """
@@ -951,9 +934,9 @@ class KubernetesWrapper(object):
         message["vnf_id"] = func_id
 
         if self.functions[func_id]['error'] is None:
-            message["status"] = "COMPLETED"
+            message["request_status"] = "COMPLETED"
         else:
-            message["status"] = "FAILED"
+            message["request_status"] = "FAILED"
 
         if self.functions[func_id]['message'] is not None:
             message["message"] = self.functions[func_id]['message']
@@ -972,14 +955,12 @@ class KubernetesWrapper(object):
         """
 
         message = {}
-        message["timestamp"] = time.time()
-        message["error"] = self.services[serv_id]['error']
         message["instance_uuid"] = serv_id
 
         if self.services[serv_id]['error'] is None:
-            message["status"] = "COMPLETED"
+            message["request_status"] = "COMPLETED"
         else:
-            message["status"] = "FAILED"
+            message["request_status"] = "FAILED"
 
         if self.services[serv_id]['message'] is not None:
             message["message"] = self.services[serv_id]['message']
@@ -987,7 +968,7 @@ class KubernetesWrapper(object):
         LOG.info("Generating response to the workflow request")
 
         corr_id = self.services[serv_id]['orig_corr_id']
-        topic = self.services[serv_id]['topic']
+        topic = self.services[serv_id]['properties'].reply_to
         self.manoconn.notify(topic,
                              yaml.dump(message),
                              correlation_id=corr_id)
