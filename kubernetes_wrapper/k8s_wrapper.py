@@ -191,26 +191,27 @@ class KubernetesWrapperEngine(object):
             LOG.error("Exception when calling ExtensionsV1beta1Api->:patch_namespaced_deployment %s\n" % e)
         return patch
 
-    def create_configmap(self, config_map_id, instance_uuid, env_vars, namespace = "default"):
+    def create_configmap(self, config_map_id, instance_uuid, env_vars, service_uuid, namespace = "default"):
         configmap_updated = None
+        configuration = {}
         data = env_vars
-        LOG.info("Vars received: " + str(env_vars))
+        LOG.info("Vars received: " + str(env_vars).replace("'","\"").replace(" ","").replace("\n",""))
         k8s_beta = client.CoreV1Api()
         metadata = client.V1ObjectMeta(name = config_map_id, namespace = namespace,
-                                       labels = {"instance_uuid": instance_uuid})
+                                       labels = {"instance_uuid": instance_uuid, "service_uuid": service_uuid})
         configmap = None
-        # for x, y in env_vars.items():
-        #     data.append({x: y})
-        LOG.info("Data dict: " + str(data))
+        for x, y in data.items():
+            configuration[str(x)] = str(y)
+        LOG.info("Data dict: " + str(configuration).replace("'","\"").replace(" ","").replace("\n",""))
 
-        if isinstance(data, dict):
-            body = client.V1ConfigMap(data = data, metadata = metadata)
+        if isinstance(configuration, dict):
+            body = client.V1ConfigMap(data = configuration, metadata = metadata)
             try:
                 configmap = k8s_beta.create_namespaced_config_map(namespace, body)
             except ApiException as e:
                 LOG.error("Exception when calling V1ConfigMap->create_namespaced_config_map: %s\n" % e)
 
-        LOG.info("Configmap:" + str(configmap))
+        LOG.info("Configmap:" + str(configmap).replace("'","\"").replace(" ","").replace("\n",""))
         return configmap
 
     def overwrite_configmap(self, config_map_id, configmap, instance_uuid, env_vars, namespace = "default"):
@@ -222,7 +223,7 @@ class KubernetesWrapperEngine(object):
             LOG.info("Name: " + str(x))
             LOG.info("value: " + str(y))
             LOG.info("data: " + str(configmap).replace("'","\"").replace(" ","").replace("\n",""))
-            configmap.data.update({x: y})
+            configmap.data.update({str(x): str(y)})
         LOG.info("Data dict: " + str(configmap).replace("'","\"").replace(" ","").replace("\n",""))
         body = configmap
         try:
@@ -383,6 +384,64 @@ class KubernetesWrapperEngine(object):
         reply['vnfr'] = resp2
         return reply
    
+    def remove_service(self, service_uuid, namespace, vim_uuid, watch=False, include_uninitialized=True, pretty='True' ):
+        """
+        CNF remove method. This remove a service
+        service: k8s service object
+        namespace: Namespace where the service will be deployed
+        """
+        reply = {}
+        status = None
+        message = None
+        k8s_beta = client.ExtensionsV1beta1Api()
+
+        LOG.info("Deleting deployments")
+        # Delete deployment
+        try: 
+            resp = k8s_beta.delete_collection_namespaced_deployment(namespace, label_selector="service_uuid=" + service_uuid)
+            LOG.info("remove_collection_deployments: " + str(resp).replace("'","\"").replace(" ","").replace("\n",""))
+        except ApiException as e:
+            print("Exception when calling ExtensionsV1beta1Api->delete_collection_namespaced_deployment: " + str(e))
+            status = False
+            message = str(e)
+
+        LOG.info("Deleting services")
+        # Delete services
+        k8s_beta = client.CoreV1Api()
+        try: 
+            resp = k8s_beta.list_namespaced_service(namespace, label_selector="service_uuid=" + service_uuid)
+        except ApiException as e:
+            LOG.info("Exception when calling CoreV1Api->list_namespaced_services: " + str(e).replace("'","\"").replace(" ","").replace("\n",""))
+            status = False
+            message = str(e)
+
+        k8s_services = []
+        for k8s_service_list in resp.items:
+            k8s_services.append(k8s_service_list.metadata.name)
+
+        LOG.info("k8s service list" + str(k8s_services).replace("'","\"").replace(" ","").replace("\n",""))
+        k8s_beta = client.CoreV1Api()
+        body = client.V1DeleteOptions()
+        for k8s_service in k8s_services:
+            try: 
+                resp = k8s_beta.delete_namespaced_service(k8s_service, namespace, body)
+            except ApiException as e:
+                LOG.info("Exception when calling CoreV1Api->delete_namespaced_service: " + str(e).replace("'","\"").replace(" ","").replace("\n",""))
+                status = False
+                message = str(e)                
+
+        LOG.info("Deleting configmaps")
+        # Delete configmaps
+        k8s_beta = client.CoreV1Api()
+        try: 
+            resp = k8s_beta.delete_collection_namespaced_config_map(namespace, label_selector="service_uuid=" + service_uuid)
+        except ApiException as e:
+            LOG.info("Exception when calling CoreV1Api->delete_collection_namespaced_config_map: " + str(e).replace("'","\"").replace(" ","").replace("\n",""))
+            status = False
+            message = str(e)
+
+        return message
+
     def check_pod_names(self, deployment_selector, namespace, watch=False, include_uninitialized=True, pretty='True'):
         k8s_beta = client.CoreV1Api()
         resp = k8s_beta.list_namespaced_pod(label_selector="deployment=" + deployment_selector,
@@ -398,10 +457,10 @@ class KubernetesWrapperEngine(object):
         
         return cdu_reference
 
-    def deployment_object(self, DEPLOYMENT_NAME, cnf_yaml, service_uuid):
+    def deployment_object(self, instance_uuid, cnf_yaml, service_uuid):
         """
         CNF modeling method. This build a deployment object in kubernetes
-        DEPLOYMENT_NAME: k8s deployment name
+        instance_uuid: k8s deployment name
         cnf_yaml: CNF Descriptor in yaml format
         """
         LOG.info("CNFD: " + str(cnf_yaml))
@@ -409,7 +468,6 @@ class KubernetesWrapperEngine(object):
         deployment_k8s = None
         env_vars = None
         env_from = None
-        instance_uuid = cnf_yaml['instance_uuid']
         if "cloudnative_deployment_units" in cnf_yaml:
             cdu = cnf_yaml.get('cloudnative_deployment_units')
             for cdu_obj in cdu:
@@ -419,7 +477,7 @@ class KubernetesWrapperEngine(object):
                 image = cdu_obj.get('image')
                 cdu_conex = cdu_obj.get('connection_points')
                 container_name = cdu_id
-                config_map_id = str(cdu_id)
+                config_map_id = cdu_id
                 if cdu_obj.get('parameters'):
                     env_vars = cdu_obj['parameters'].get('env')
                 if cdu_conex:
@@ -430,10 +488,12 @@ class KubernetesWrapperEngine(object):
 
                 # Environment variables from descriptor
                 if env_vars:
-                    KubernetesWrapperEngine.create_configmap(self, config_map_id, instance_uuid, env_vars, namespace = "default")
+                    LOG.info("configmap: " + str(config_map_id))
+                    KubernetesWrapperEngine.create_configmap(self, config_map_id, instance_uuid, env_vars, service_uuid, namespace = "default")
                 else:
                     env_vars = {"sonata": "rules"}
-                    KubernetesWrapperEngine.create_configmap(self, config_map_id, instance_uuid, env_vars, namespace = "default")
+                    LOG.info("configmap else: " + str(config_map_id))
+                    KubernetesWrapperEngine.create_configmap(self, config_map_id, instance_uuid, env_vars, service_uuid, namespace = "default")
                 env_from = client.V1EnvFromSource(config_map_ref = client.V1ConfigMapEnvSource(name = config_map_id, optional = False))
 
                 # Default static environment variables
@@ -457,9 +517,9 @@ class KubernetesWrapperEngine(object):
         deployment_label =  (str(cnf_yaml.get("vendor")) + "-" +
                              str(cnf_yaml.get("name")) + "-" +
                              str(cnf_yaml.get("version")) + "-" +
-                             DEPLOYMENT_NAME).replace(".", "-")
+                             instance_uuid.split("-")[0]).replace(".", "-")
         template = client.V1PodTemplateSpec(
-            metadata=client.V1ObjectMeta(labels={'deployment': deployment_label, 
+            metadata=client.V1ObjectMeta(labels={'deployment': deployment_label,
                                                  'instance_uuid': cnf_yaml['instance_uuid'],
                                                  'service_uuid': service_uuid}
                                                  ),
@@ -476,10 +536,10 @@ class KubernetesWrapperEngine(object):
             spec=spec)
         return deployment_k8s
 
-    def service_object(self, DEPLOYMENT_NAME, cnf_yaml, deployment_selector):
+    def service_object(self, instance_uuid, cnf_yaml, deployment_selector, service_uuid):
         """
         CNF modeling method. This build a service object in kubernetes
-        DEPLOYMENT_NAME: k8s deployment name
+        instance_uuid: function uuid
         cnf_yaml: CNF Descriptor in yaml format
         deployment_selector: The deployment where the service will forward the traffic
         """
@@ -528,7 +588,7 @@ class KubernetesWrapperEngine(object):
         service = client.V1Service(
             api_version="v1",
             kind="Service",
-            metadata=client.V1ObjectMeta(name=deployment_selector, namespace="default"),
+            metadata=client.V1ObjectMeta(name=deployment_selector, namespace="default", labels = {"service_uuid": service_uuid}),
             spec=spec)
         # LOG.info(service)
         return service
@@ -560,22 +620,26 @@ class KubernetesWrapperEngine(object):
         Monitoring metrics from cluster
         vim_uuid: cluster if to get the metrics
         """
-
-        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
-        api = client.ApiClient()
-        response = api.call_api('/apis/metrics.k8s.io/v1beta1/nodes', 'GET', _return_http_data_only=True, response_type=str)
-        jsonify_response = response.replace("'","\"")
-        json_response = json.loads(jsonify_response)
         cpu_used = 0
-        memory_used = 0        
-        if json_response.get("items"):
-            for item in json_response["items"]:
-                if item.get("usage"):
-                    cpu = item["usage"]["cpu"]
-                    memory = item["usage"]["memory"]
-                    cpu_used += int(cpu[0:-1])
-                    memory_used += int(memory[0:-2])   
-        # LOG.info("CPU Used: " + str(cpu_used) + "Memory Used:" + str(memory_used))
+        memory_used = 0 
+        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
+        LOG.info("vim_uuid: " + str(vim_uuid))
+        api = client.ApiClient()
+        try:
+            response = api.call_api('/apis/metrics.k8s.io/v1beta1/nodes', 'GET', _return_http_data_only=True, response_type=str)
+            jsonify_response = response.replace("'","\"")
+            json_response = json.loads(jsonify_response)     
+            if json_response.get("items"):
+                for item in json_response["items"]:
+                    if item.get("usage"):
+                        cpu = item["usage"]["cpu"]
+                        memory = item["usage"]["memory"]
+                        cpu_used += int(cpu[0:-1])
+                        memory_used += int(memory[0:-2])   
+            LOG.info("CPU Used: " + str(cpu_used) + "Memory Used:" + str(memory_used))
+        except ApiException as e:
+            LOG.info("Exception when calling /apis/metrics.k8s.io/v1beta1/nodes: GET" + str(e))
+
         return (cpu_used, memory_used)
 
 test = KubernetesWrapperEngine()

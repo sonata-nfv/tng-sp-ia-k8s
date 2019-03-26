@@ -74,6 +74,8 @@ class KubernetesWrapper(object):
 
         # Create the ledger that saves state
         self.functions = {}
+        # Create the ledger that saves state
+        self.services = {}
 
         self.thrd_pool = pool.ThreadPoolExecutor(max_workers=10)
 
@@ -158,9 +160,12 @@ class KubernetesWrapper(object):
         # The topic on which deploy requests are posted.
         self.manoconn.subscribe(self.function_instance_create, t.CNF_DEPLOY)
         LOG.info(t.CNF_DEPLOY + " Created")
-        # The topic on which terminate requests are posted.
-        self.manoconn.subscribe(self.function_instance_remove, t.CNF_REMOVE)
-        LOG.info(t.CNF_REMOVE + " Created")
+        # The topic on which terminate service requests are posted.
+        self.manoconn.subscribe(self.service_remove, t.CNF_SERVICE_REMOVE)
+        LOG.info(t.CNF_SERVICE_REMOVE + " Created")
+        # The topic on which terminate functions requests are posted.
+        self.manoconn.subscribe(self.function_instance_remove, t.CNF_FUNCTION_REMOVE)
+        LOG.info(t.CNF_FUNCTION_REMOVE + " Created")        
         # The topic on service preparation requests are posted.
         self.manoconn.subscribe(self.prepare_service, t.CNF_PREPARE)
         LOG.info(t.CNF_PREPARE + " Created")
@@ -169,7 +174,7 @@ class KubernetesWrapper(object):
         LOG.info(t.NODE_LIST + " Created")
         # The topic on which list the function configuration
         self.manoconn.subscribe(self.configure_function, t.CNF_CONFIGURE)
-        LOG.info(t.CNF_CONFIGURE + " Created")      
+        LOG.info(t.CNF_CONFIGURE + " Created")
 
 ##########################
 # K8S Threading management
@@ -270,6 +275,106 @@ class KubernetesWrapper(object):
 
         return func_id
 
+##################################
+# K8S Service Threading management
+##################################
+
+    def get_service_ledger(self, func_id):
+        return self.functions[func_id]
+
+    def get_services(self):
+        return self.services
+
+    def set_services(self, services_dict):
+        self.services = services_dict
+        return
+
+    def start_next_service_task(self, serv_id):
+        """
+        This method makes sure that the next task in the schedule is started
+        when a task is finished, or when the first task should begin.
+        :param serv_id: the inst uuid of the service that is being handled.
+        :param first: indicates whether this is the first task in a chain.
+        """
+
+        # If the kill field is active, the chain is killed
+        if self.services[serv_id]['kill_chain']:
+            LOG.info("Services " + serv_id + ": Killing running workflow")
+            # TODO: delete records, stop (destroy namespace)
+            # TODO: Or, jump into the kill workflow.
+            del self.services[serv_id]
+            return
+
+        # Select the next task, only if task list is not empty
+        if len(self.services[serv_id]['schedule']) > 0:
+
+            # share state with other K8S Wrappers
+            next_task = getattr(self,
+                                self.services[serv_id]['schedule'].pop(0))
+
+            # Push the next task to the threadingpool
+            task = self.thrd_pool.submit(next_task, serv_id)
+
+            # Log if a task fails
+            if task.exception() is not None:
+                print(task.result())
+
+            # When the task is done, the next task should be started if no flag
+            # is set to pause the chain.
+            if self.services[serv_id]['pause_chain']:
+                self.services[serv_id]['pause_chain'] = False
+            else:
+                self.start_next_service_task(serv_id)
+        else:
+            del self.services[serv_id]
+
+    def add_service_to_ledger(self, payload, corr_id, serv_id, topic, properties):
+        """
+        This method adds new services with their specifics to the ledger,
+        so other functions can use this information.
+
+        :param payload: the payload of the received message
+        :param corr_id: the correlation id of the received message
+        :param serv_id: the instance uuid of the function defined by SLM.
+        """
+
+        # Add the function to the ledger and add instance ids
+        self.services[serv_id] = {}
+        self.services[serv_id]['id'] = serv_id
+
+        # Add the topic of the call
+        self.services[serv_id]['topic'] = topic
+        self.services[serv_id]['properties'] = properties
+
+        # Add to correlation id to the ledger
+        self.services[serv_id]['orig_corr_id'] = corr_id
+
+        # Add payload to the ledger
+        self.services[serv_id]['payload'] = payload
+
+        # Add the service uuid that this function belongs to
+        self.services[serv_id]['instance_uuid'] = payload['instance_uuid']
+
+        # Add the VIM uuid
+        self.services[serv_id]['vim_uuid'] = payload['vim_uuid']
+
+        # Create the function schedule
+        self.services[serv_id]['schedule'] = []
+
+        # Create the chain pause and kill flag
+
+        self.services[serv_id]['pause_chain'] = False
+        self.services[serv_id]['kill_chain'] = False
+
+        self.services[serv_id]['act_corr_id'] = None
+        self.services[serv_id]['message'] = None
+
+        # Add error field
+        self.services[serv_id]['error'] = None
+
+        return serv_id
+
+
 
 #############################
 # K8S Wrapper input - output
@@ -329,6 +434,7 @@ class KubernetesWrapper(object):
         corr_id = properties.correlation_id
         payload_dict = yaml.load(payload)
         instance_uuid = payload_dict.get("func_id")
+        service_uuid = self.functions[instance_uuid]['service_instance_id']
         LOG.info("payload_dict: " + str(payload_dict))
         deployment_name = engine.KubernetesWrapperEngine.get_deployment_list(self, str("instance_uuid=" + instance_uuid), "default")
         LOG.info("DEPLOYMENT NAME: " + str(deployment_name))
@@ -346,7 +452,7 @@ class KubernetesWrapper(object):
                     if configmap:
                         engine.KubernetesWrapperEngine.overwrite_configmap(self, config_map_id, configmap, instance_uuid, env_vars["envs"], "default")
                     else:
-                        engine.KubernetesWrapperEngine.create_configmap(self, config_map_id, instance_uuid, env_vars["envs"], namespace = "default")
+                        engine.KubernetesWrapperEngine.create_configmap(self, config_map_id, instance_uuid, env_vars["envs"], service_uuid, namespace = "default")
 
         LOG.info("Deployment name: "+ str(deployment_name))
         LOG.info("deployment: " + str(deployment).replace("'","\"").replace(" ","").replace("\n",""))
@@ -479,7 +585,7 @@ class KubernetesWrapper(object):
 
             msg = ' Response on remove request: ' + str(response)
             LOG.info('Function ' + str(func_id) + msg)
-            self.manoconn.notify(t.CNF_REMOVE,
+            self.manoconn.notify(t.CNF_FUNCTION_REMOVE,
                                  yaml.dump(response),
                                  correlation_id=corr_id)
 
@@ -489,6 +595,7 @@ class KubernetesWrapper(object):
 
         LOG.info("Function instance remove request received.")
         message = yaml.load(payload)
+        LOG.info("payload: " + str(message).replace("'","\"").replace(" ","").replace("\n",""))
 
         # Check if payload is ok.
 
@@ -541,6 +648,69 @@ class KubernetesWrapper(object):
         self.start_next_task(func_id)
 
         return self.functions[func_id]['schedule']
+
+    def service_remove(self, ch, method, properties, payload):
+        """
+        This method starts the cnf service remove workflow
+        """
+        def send_error_response(error, service_id, scaling_type=None):
+            response = {}
+            response['error'] = error
+
+            response['status'] = 'ERROR'
+
+            msg = ' Response on remove request: ' + str(response)
+            LOG.info('Service ' + str(service_id) + msg)
+            self.manoconn.notify(t.CNF_SERVICE_REMOVE,
+                                 yaml.dump(response),
+                                 correlation_id=corr_id)
+
+        # Don't trigger on self created messages
+        if self.name == properties.app_id:
+            return
+
+        LOG.info("Service instance remove request received.")
+        message = yaml.load(payload)
+        LOG.info("payload: " + str(message).replace("'","\"").replace(" ","").replace("\n",""))
+
+        # Check if payload is ok.
+
+        # Extract the correlation id
+        corr_id = properties.correlation_id
+
+        if corr_id is None:
+            error = 'No correlation id provided in header of request'
+            send_error_response(error, None)
+            return
+
+        if not isinstance(message, dict):
+            error = 'Payload is not a dictionary'
+            send_error_response(error, None)
+            return
+
+        if 'instance_uuid' not in message.keys():
+            error = 'instance_uuid key not provided'
+            send_error_response(error, None)
+            return
+        service_id = message['instance_uuid']       
+
+        self.add_service_to_ledger(message, corr_id, service_id, t.CNF_SERVICE_REMOVE, properties)
+
+        LOG.info("service" + str(service_id))
+        service = self.services[service_id]
+        LOG.info("service" + str(service))
+
+        # Schedule the tasks that the K8S Wrapper should do for this request.
+        add_schedule = []
+        add_schedule.append('remove_service')
+        add_schedule.append('respond_to_service_request')
+
+        self.services[service_id]['schedule'].extend(add_schedule)
+
+        msg = ": New kill request received."
+        LOG.info("Service " + service_id + msg)
+        # Start the chain of tasks
+        self.start_next_service_task(service_id)
 
     def no_resp_needed(self, ch, method, prop, payload):
         """
@@ -611,7 +781,7 @@ class KubernetesWrapper(object):
         deployment_selector = obj_deployment.spec.template.metadata.labels.get("deployment")
         # LOG.info("Deployment Selector: " + str(deployment_selector))
         # LOG.info("function[vnfd]:" + str(function['vnfd']))
-        obj_service = engine.KubernetesWrapperEngine.service_object(self, function['vnfd']['instance_uuid'], function['vnfd'], deployment_selector)
+        obj_service = engine.KubernetesWrapperEngine.service_object(self, function['vnfd']['instance_uuid'], function['vnfd'], deployment_selector, function['service_instance_id'])
         # LOG.info("Service Object:" + str(obj_service))
 
         LOG.info("Creating a Deployment")
@@ -645,7 +815,7 @@ class KubernetesWrapper(object):
             cloudnative_deployment_unit["id"] = cdu["id"].split("-")[0]
             cloudnative_deployment_unit['image'] = cdu['image']
             cloudnative_deployment_unit['vim_id'] = function['vim_uuid']
-            cloudnative_deployment_unit['cdu_reference'] = cdu["id"]
+            cloudnative_deployment_unit['cdu_reference'] = function['vnfd']['name'] + ":" + cdu["id"]
             cloudnative_deployment_unit['number_of_instances'] = 1                  # TODO: update this value
             cloudnative_deployment_unit['load_balancer_ip'] = service.get('ip_mapping')[0]
             cloudnative_deployment_unit['connection_points'] = []
@@ -657,6 +827,7 @@ class KubernetesWrapper(object):
                 cloudnative_deployment_unit['connection_points'].append(connection_point)
             cloudnative_deployment_units.append(cloudnative_deployment_unit)
         outg_message['vnfr']['cloudnative_deployment_units'] = cloudnative_deployment_units
+        outg_message['vnfr']['name'] = function['vnfd']['name']
 
         if service['ports']:
             outg_message['vnfr']['descriptor_reference'] = func_id
@@ -680,16 +851,19 @@ class KubernetesWrapper(object):
         # Pause the chain of tasks to wait for response
         self.functions[func_id]['pause_chain'] = True
 
-    def remove_vnf(self, func_id):
+    def remove_cnf(self, func_id):
         """
         This method request the removal of a vnf
         """
 
-        function = self.functions[func_id]
         outg_message = {}
-        outg_message["service_instance_id"] = function['serv_id']
-        outg_message['vim_uuid'] = function['vim_uuid']
-        outg_message['vnf_uuid'] = func_id
+        # outg_message["service_instance_id"] = function['serv_id']
+        # outg_message['vim_uuid'] = function['vim_uuid']
+        # outg_message['vnf_uuid'] = func_id
+
+        outg_message['request_status'] = "COMPLETED"
+        outg_message['message'] = ""
+        LOG.INFO("FUNCTION WAS REMOVED")
 
         payload = yaml.dump(outg_message)
 
@@ -700,13 +874,26 @@ class KubernetesWrapper(object):
         LOG.info("Function " + func_id + msg)
         LOG.debug("Payload of request: " + payload)
         # Contact the IA
-        self.manoconn.call_async(self.ia_remove_response,
-                                 t.CNF_REMOVE,
-                                 payload,
-                                 correlation_id=corr_id)
+        self.manoconn.notify(t.CNF_FUNCTION_REMOVE,
+                             payload,
+                             correlation_id=corr_id)
 
-        # Pause the chain of tasks to wait for response
-        self.functions[func_id]['pause_chain'] = True
+    def remove_service(self, service_id):
+        """
+        This method request the removal of service
+        """
+
+        services = self.services[service_id]
+
+        message = engine.KubernetesWrapperEngine.remove_service(self, service_id, "default", services['vim_uuid'])
+
+        if message:
+            LOG.info("Error removing service: " + str(message))
+        else:
+            LOG.info("SERVICE WAS REMOVED")
+
+        corr_id = str(uuid.uuid4())
+        self.services[service_id]['act_corr_id'] = corr_id
 
     def ia_remove_response(self, ch, method, prop, payload):
         """
@@ -744,9 +931,9 @@ class KubernetesWrapper(object):
         message["vnf_id"] = func_id
 
         if self.functions[func_id]['error'] is None:
-            message["status"] = "COMPLETED"
+            message["request_status"] = "COMPLETED"
         else:
-            message["status"] = "FAILED"
+            message["request_status"] = "FAILED"
 
         if self.functions[func_id]['message'] is not None:
             message["message"] = self.functions[func_id]['message']
@@ -759,6 +946,29 @@ class KubernetesWrapper(object):
                              yaml.dump(message),
                              correlation_id=corr_id)
 
+    def respond_to_service_request(self, serv_id):
+        """
+        This method creates a response message for the sender of requests.
+        """
+
+        message = {}
+        message["instance_uuid"] = serv_id
+
+        if self.services[serv_id]['error'] is None:
+            message["request_status"] = "COMPLETED"
+        else:
+            message["request_status"] = "FAILED"
+
+        if self.services[serv_id]['message'] is not None:
+            message["message"] = self.services[serv_id]['message']
+
+        LOG.info("Generating response to the workflow request")
+
+        corr_id = self.services[serv_id]['orig_corr_id']
+        topic = self.services[serv_id]['properties'].reply_to
+        self.manoconn.notify(topic,
+                             yaml.dump(message),
+                             correlation_id=corr_id)
 def main():
     """
     Entry point to start wrapper.
