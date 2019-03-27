@@ -398,12 +398,25 @@ class KubernetesWrapperEngine(object):
         LOG.info("Deleting deployments")
         # Delete deployment
         try: 
-            resp = k8s_beta.delete_collection_namespaced_deployment(namespace, label_selector="service_uuid=" + service_uuid)
-            LOG.info("remove_collection_deployments: " + str(resp).replace("'","\"").replace(" ","").replace("\n",""))
+            resp = k8s_beta.list_namespaced_deployment(namespace, label_selector="service_uuid=" + service_uuid)
         except ApiException as e:
-            print("Exception when calling ExtensionsV1beta1Api->delete_collection_namespaced_deployment: " + str(e))
+            print("Exception when calling ExtensionsV1beta1Api->list_namespaced_deployment: " + str(e))
             status = False
             message = str(e)
+
+        k8s_deployments = []
+        for k8s_deployment_list in resp.items:
+            k8s_deployments.append(k8s_deployment_list.metadata.name)
+
+        LOG.info("k8s deployment list" + str(k8s_deployments).replace("'","\"").replace(" ","").replace("\n",""))
+        body = client.V1DeleteOptions(propagation_policy="Foreground", grace_period_seconds=5)
+        for k8s_deployment in k8s_deployments:
+            try:
+                resp = k8s_beta.delete_namespaced_deployment(k8s_deployment, namespace, body)
+            except ApiException as e:
+                print("Exception when calling ExtensionsV1beta1Api->delete_namespaced_deployment: " + str(e))
+                status = False
+                message = str(e)
 
         LOG.info("Deleting services")
         # Delete services
@@ -421,7 +434,7 @@ class KubernetesWrapperEngine(object):
 
         LOG.info("k8s service list" + str(k8s_services).replace("'","\"").replace(" ","").replace("\n",""))
         k8s_beta = client.CoreV1Api()
-        body = client.V1DeleteOptions()
+        body = client.V1DeleteOptions(propagation_policy="Foreground", grace_period_seconds=5)
         for k8s_service in k8s_services:
             try: 
                 resp = k8s_beta.delete_namespaced_service(k8s_service, namespace, body)
