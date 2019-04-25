@@ -512,6 +512,7 @@ class KubernetesWrapperEngine(object):
                 # Default static environment variables
                 environment.append(client.V1EnvVar(name="instance_uuid", value=instance_uuid))
                 environment.append(client.V1EnvVar(name="service_uuid", value=service_uuid))
+                environment.append(client.V1EnvVar(name="container_name", value=container_name))
 
                 # Configureate Pod template container
                 container = client.V1Container(
