@@ -80,8 +80,7 @@ class ManoBasePlugin(object):
         self.uuid = None  # uuid given by plugin manager on registration
         self.state = None  # the state of this plugin READY/RUNNING/PAUSED/FAILED
 
-        LOG.info(
-            "Starting MANO Plugin: %r ..." % self.name)
+        LOG.info("Starting MANO Plugin: {} ...".format(self.name))
         # create and initialize broker connection
         while True:
             try:
@@ -226,7 +225,7 @@ class ManoBasePlugin(object):
         self.uuid = response.get("uuid")
         # mark this plugin to be ready to be started
         self.state = "READY"
-        LOG.info("Plugin registered with UUID: %r" % response.get("uuid"))
+        LOG.info("Plugin registered with UUID: {}".format(response.get("uuid")))
         # jump to on_registration_ok()
         self.on_registration_ok()
         # subscribe to start topic

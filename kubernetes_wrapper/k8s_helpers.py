@@ -32,7 +32,12 @@ This contains helper functions for `flm.py`.
 import requests
 import uuid
 import yaml
+import logging
+from kubernetes_wrapper.logger import TangoLogger
 
+LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=True)
+TangoLogger.getLogger("k8s_wrapper:main", logging.INFO, log_json=True)
+LOG.setLevel(logging.DEBUG)
 
 def funcid_from_corrid(ledger, corr_id):
     """
@@ -98,13 +103,13 @@ def getRestData(base, path, expected_code=200, head=None):
         code = get_response.status_code
 
         if (code == expected_code):
-            print("GET for " + str(path) + " succeeded: " + str(content))
+            LOG.info("GET for {} succeded: {}".format(path, content))
             return {'error': None, "content": content}
         else:
-            print("GET returned with status_code: " + str(code))
+            LOG.error("GET returned with status_code: {}".format(code))
             return{'error': code, "content": content}
     except:
-        print("GET request timed out")
+        LOG.error("GET request timed out")
         return{'error': '400', 'content': 'request timed out'}
 
 
