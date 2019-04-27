@@ -63,7 +63,6 @@ class KubernetesWrapperEngine(object):
         """
         # trigger connection setup (without blocking)
         self.load_initial_config()
-        # LOG.debug("config: " + str(config) )
         # Threading workers
         self.thrd_pool = pool.ThreadPoolExecutor(max_workers=100)
         # Track the workers
@@ -151,12 +150,12 @@ class KubernetesWrapperEngine(object):
             if vim_list is not None:
                 if len(vim_list) > 0:
                     vim_list = str(list(vim_list[0])[0])
-                    with open("/tmp/" + vim_list, 'w') as f:
+                    with open("/tmp/{}".format(vim_list), 'w') as f:
                         vim_config = self.get_vim_config(vim_list)
                         if vim_config is not None:
                             f.write(vim_config)
                     if vim_config is not None:
-                        kube_config.load_kube_config(config_file="/tmp/" + vim_list)
+                        kube_config.load_kube_config(config_file="/tmp/{}".format(vim_list))
                 else:
                     LOG.info("K8S Cluster is not configured")
 
@@ -189,7 +188,9 @@ class KubernetesWrapperEngine(object):
         data = env_vars
         k8s_beta = client.CoreV1Api()
         metadata = client.V1ObjectMeta(name = config_map_id, namespace = namespace,
-                                       labels = {"instance_uuid": instance_uuid, "service_uuid": service_uuid})
+                                       labels = {"instance_uuid": instance_uuid, 
+                                                 "service_uuid": service_uuid,
+                                                 "sp": "sonata"})
         configmap = None
         for x, y in data.items():
             configuration[str(x)] = str(y)
@@ -350,7 +351,7 @@ class KubernetesWrapperEngine(object):
 
         loadbalancerip = resp2.status.load_balancer.ingress[0].ip
 
-        LOG.debug("loadbalancerip: " + str(loadbalancerip))
+        LOG.debug("loadbalancerip: {}".format(loadbalancerip))
         
         internal_ip = resp2.spec.cluster_ip       
         ports = resp2.spec.ports
@@ -377,7 +378,7 @@ class KubernetesWrapperEngine(object):
         LOG.debug("Deleting deployments")
         # Delete deployment
         try: 
-            resp = k8s_beta.list_namespaced_deployment(namespace, label_selector="service_uuid=" + service_uuid)
+            resp = k8s_beta.list_namespaced_deployment(namespace, label_selector="service_uuid={}".format(service_uuid))
         except ApiException as e:
             LOG.error("Exception when calling ExtensionsV1beta1Api->list_namespaced_deployment: {}".format(e))
             status = False
@@ -401,7 +402,7 @@ class KubernetesWrapperEngine(object):
         # Delete services
         k8s_beta = client.CoreV1Api()
         try: 
-            resp = k8s_beta.list_namespaced_service(namespace, label_selector="service_uuid=" + service_uuid)
+            resp = k8s_beta.list_namespaced_service(namespace, label_selector="service_uuid={}".format(service_uuid))
         except ApiException as e:
             LOG.error("Exception when calling CoreV1Api->list_namespaced_services: {}".format(e))
             status = False
@@ -508,7 +509,8 @@ class KubernetesWrapperEngine(object):
         template = client.V1PodTemplateSpec(
             metadata=client.V1ObjectMeta(labels={'deployment': deployment_label,
                                                  'instance_uuid': cnf_yaml['instance_uuid'],
-                                                 'service_uuid': service_uuid}
+                                                 'service_uuid': service_uuid,
+                                                 "sp": "sonata"}
                                                  ),
             spec=client.V1PodSpec(containers=container_list))
         # Create the specification of deployment
@@ -564,7 +566,8 @@ class KubernetesWrapperEngine(object):
             kind="Service",
             metadata=client.V1ObjectMeta(name=deployment_selector, 
                                          namespace="default", 
-                                         labels = {"service_uuid": service_uuid}),
+                                         labels = {"service_uuid": service_uuid,
+                                                   "sp": "sonata"}),
             spec=spec)
         return service
 
