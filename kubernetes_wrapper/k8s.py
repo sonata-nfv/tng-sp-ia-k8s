@@ -47,8 +47,8 @@ from kubernetes_wrapper import k8s_topics as t
 from kubernetes_wrapper import k8s_wrapper as engine
 #from k8s_wrapper import KubernetesWrapperEngine as engine
 
-LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=True)
-TangoLogger.getLogger("k8s_wrapper:main", logging.INFO, log_json=True)
+LOG = TangoLogger.getLogger(__name__, log_level=logging.DEBUG, log_json=True)
+TangoLogger.getLogger("k8s_wrapper:main", logging.DEBUG, log_json=True)
 LOG.setLevel(logging.DEBUG)
 
 class KubernetesWrapper(object):

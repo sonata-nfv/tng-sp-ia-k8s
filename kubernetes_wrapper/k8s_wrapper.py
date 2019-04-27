@@ -47,8 +47,8 @@ from copy import deepcopy
 import psycopg2
 from kubernetes_wrapper.logger import TangoLogger
 
-LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=True)
-TangoLogger.getLogger("k8s_wrapper:k8s-wrapper", logging.INFO, log_json=True)
+LOG = TangoLogger.getLogger(__name__, log_level=logging.DEBUG, log_json=True)
+TangoLogger.getLogger("k8s_wrapper:k8s-wrapper", logging.DEBUG, log_json=True)
 LOG.setLevel(logging.DEBUG)
 
 MAX_DEPLOYMENT_TIME = 60
@@ -606,7 +606,7 @@ class KubernetesWrapperEngine(object):
                         memory = item["usage"]["memory"]
                         cpu_used += int(cpu[0:-1])
                         memory_used += int(memory[0:-2])   
-            LOG.debug("CPU Used: " + str(cpu_used) + "Memory Used:" + str(memory_used))
+            LOG.debug("CPU Used: {} Memory Used: {}".format(cpu_used, memory_used))
         except ApiException as e:
             LOG.error("Exception when calling /apis/metrics.k8s.io/v1beta1/nodes: GET {}".format(e))
         return (cpu_used, memory_used)

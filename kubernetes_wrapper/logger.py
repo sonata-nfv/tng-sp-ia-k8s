@@ -70,7 +70,7 @@ class TangoLogger(object):
 
     @staticmethod
     def reconfigure_all_tango_loggers(
-            log_level=logging.INFO, log_json=False):
+            log_level=logging.DEBUG, log_json=False):
         """
         Configure all active TangoLoggers (identified by 'tango.' prfix).
         Two modes:
@@ -104,7 +104,7 @@ class TangoLogger(object):
                     h.setLevel(999)  # disable (hide all)
 
     @staticmethod
-    def getLogger(name, log_level=logging.INFO, log_json=False):
+    def getLogger(name, log_level=logging.DEBUG, log_json=False):
         """
         Create a TangoLogger logger.
         """
