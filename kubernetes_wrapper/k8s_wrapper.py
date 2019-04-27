@@ -45,11 +45,12 @@ import uuid
 from pprint import pprint
 from copy import deepcopy
 import psycopg2
+from kubernetes_wrapper.logger import TangoLogger
 
-logging.basicConfig(level=logging.INFO)
-logging.getLogger('pika').setLevel(logging.ERROR)
-LOG = logging.getLogger("k8s-wrapper:k8s-wrapper")
+LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=True)
+TangoLogger.getLogger("k8s_wrapper:k8s-wrapper", logging.INFO, log_json=True)
 LOG.setLevel(logging.DEBUG)
+
 MAX_DEPLOYMENT_TIME = 60
 
 class KubernetesWrapperEngine(object):

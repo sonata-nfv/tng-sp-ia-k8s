@@ -41,15 +41,15 @@ import psycopg2
 import datetime
 
 from kubernetes_wrapper import messaging as messaging
+from kubernetes_wrapper.logger import TangoLogger as TangoLogger
 from kubernetes_wrapper import k8s_helpers as tools
 from kubernetes_wrapper import k8s_topics as t
 from kubernetes_wrapper import k8s_wrapper as engine
 #from k8s_wrapper import KubernetesWrapperEngine as engine
 
-logging.basicConfig(level=logging.DEBUG)
-LOG = logging.getLogger("k8s-wrapper:main")
+LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=True)
+TangoLogger.getLogger("k8s_wrapper:main", logging.INFO, log_json=True)
 LOG.setLevel(logging.DEBUG)
-
 
 class KubernetesWrapper(object):
     """
@@ -975,8 +975,8 @@ def main():
     :return:
     """
     # reduce messaging log level to have a nicer output for this wrapper
-    logging.getLogger("k8s-wrapper:messaging").setLevel(logging.DEBUG)
-    logging.getLogger("k8s-wrapper:plugin").setLevel(logging.DEBUG)
+    TangoLogger.getLogger("k8s-wrapper:messaging").setLevel(logging.DEBUG)
+    TangoLogger.getLogger("k8s-wrapper:plugin").setLevel(logging.DEBUG)
     # logging.getLogger("amqp-storm").setLevel(logging.DEBUG)
     # create our function lifecycle manager
     k8s = KubernetesWrapper()

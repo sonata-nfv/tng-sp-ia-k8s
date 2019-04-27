@@ -36,9 +36,10 @@ import time
 import os
 import threading
 from kubernetes_wrapper import messaging as messaging
+from kubernetes_wrapper.logger import TangoLogger as TangoLogger
 
-logging.basicConfig(level=logging.INFO)
-LOG = logging.getLogger("wrapper:k8s")
+LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=True)
+TangoLogger.getLogger("k8s_wrapper:plugin", logging.INFO, log_json=True)
 LOG.setLevel(logging.DEBUG)
 
 
