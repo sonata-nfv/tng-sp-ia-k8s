@@ -37,10 +37,10 @@ import concurrent.futures as pool
 import uuid
 import time
 import os
+from kubernetes_wrapper.logger import TangoLogger as TangoLogger
 
-logging.basicConfig(level=logging.INFO)
-logging.getLogger('pika').setLevel(logging.ERROR)
-LOG = logging.getLogger("k8s-wrapper:messaging")
+LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=True)
+TangoLogger.getLogger("k8s_wrapper:messaging", logging.INFO, log_json=True)
 LOG.setLevel(logging.DEBUG)
 
 # if we don't find a broker configuration in our ENV, we use this URL as default
