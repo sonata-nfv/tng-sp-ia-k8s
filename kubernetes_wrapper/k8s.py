@@ -80,9 +80,9 @@ class KubernetesWrapper(object):
         self.thrd_pool = pool.ThreadPoolExecutor(max_workers=10)
 
         self.k8s_ledger = {}
-        base = 'amqp://' + 'guest' + ':' + 'guest'
+        base = 'amqp://guest:guest'
         broker = os.environ.get("broker_host").split("@")[-1].split("/")[0]
-        self.url_base = base + '@' + broker + '/'
+        self.url_base = "{}@{}/".format(base, broker)
 
         self.name = "%s.%s" % (name, self.__class__.__name__)
         self.version = version
@@ -795,7 +795,7 @@ class KubernetesWrapper(object):
             cloudnative_deployment_unit["id"] = cdu["id"].split("-")[0]
             cloudnative_deployment_unit['image'] = cdu['image']
             cloudnative_deployment_unit['vim_id'] = function['vim_uuid']
-            cloudnative_deployment_unit['cdu_reference'] = function['vnfd']['name'] + ":" + cdu["id"]
+            cloudnative_deployment_unit['cdu_reference'] = "{}:{}".format(function['vnfd']['name'], cdu["id"])
             cloudnative_deployment_unit['number_of_instances'] = 1                  # TODO: update this value
             cloudnative_deployment_unit['load_balancer_ip'] = service.get('ip_mapping')[0]
             cloudnative_deployment_unit['connection_points'] = []
@@ -886,7 +886,7 @@ class KubernetesWrapper(object):
             self.functions[func_id]["vnfr"]["status"] = "terminated"
 
         else:
-            msg = "Removal failed: " + inc_message["message"]
+            msg = "Removal failed: {}".format(inc_message["message"])
             LOG.debug("Function {} {}".format(func_id, msg))
             self.functions[func_id]["error"] = inc_message["message"]
             self.k8s_error(func_id, self.functions[func_id]['topic'])
