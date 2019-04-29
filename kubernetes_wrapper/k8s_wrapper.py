@@ -391,9 +391,9 @@ class KubernetesWrapperEngine(object):
         LOG.debug("k8s deployment list {}".format(k8s_deployments))
         body = client.V1DeleteOptions(propagation_policy="Foreground", grace_period_seconds=5)
         for k8s_deployment in k8s_deployments:
-            self.logger.debug("k8s_deployment: " + str(k8s_deployment))
-            self.logger.debug("namespace: " + str(namespace))
-            self.logger.debug("body: " + str(body))
+            LOG.debug("k8s_deployment: " + str(k8s_deployment))
+            LOG.debug("namespace: " + str(namespace))
+            LOG.debug("body: " + str(body))
             try:
                 resp = k8s_beta.delete_namespaced_deployment(k8s_deployment, namespace, body=body)
             except ApiException as e:
