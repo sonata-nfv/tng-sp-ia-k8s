@@ -860,15 +860,26 @@ class KubernetesWrapper(object):
         This method request the removal of service
         """
         services = self.services[service_id]
-        message = engine.KubernetesWrapperEngine.remove_service(self, service_id, "default", services['vim_uuid'])
+        message = engine.KubernetesWrapperEngine.remove_service(self, service_id, "default", services['vim_uuid']) 
+        outg_message = {}
 
         if message:
+            outg_message['message'] = "Error removing service: {}".format(message)
             LOG.error("Error removing service: {}".format(message))
         else:
+            outg_message['message'] = ""
             LOG.info("SERVICE WAS REMOVED")
 
+        outg_message['request_status'] = "COMPLETED"
+
+        payload = yaml.dump(outg_message)
+
         corr_id = str(uuid.uuid4())
-        self.services[service_id]['act_corr_id'] = corr_id
+        self.service[service_id]['act_corr_id'] = corr_id     
+
+        self.manoconn.notify(t.CNF_FUNCTION_REMOVE,
+                             payload,
+                             correlation_id=corr_id)        
 
     def ia_remove_response(self, ch, method, prop, payload):
         """

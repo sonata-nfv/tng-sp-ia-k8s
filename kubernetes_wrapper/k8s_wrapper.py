@@ -391,8 +391,11 @@ class KubernetesWrapperEngine(object):
         LOG.debug("k8s deployment list {}".format(k8s_deployments))
         body = client.V1DeleteOptions(propagation_policy="Foreground", grace_period_seconds=5)
         for k8s_deployment in k8s_deployments:
+            LOG.debug("k8s_deployment: " + str(k8s_deployment))
+            LOG.debug("namespace: " + str(namespace))
+            LOG.debug("body: " + str(body))
             try:
-                resp = k8s_beta.delete_namespaced_deployment(k8s_deployment, namespace, body)
+                resp = k8s_beta.delete_namespaced_deployment(k8s_deployment, namespace, body=body)
             except ApiException as e:
                 LOG.error("Exception when calling ExtensionsV1beta1Api->delete_namespaced_deployment: {}".format(e))
                 status = False
@@ -416,8 +419,11 @@ class KubernetesWrapperEngine(object):
         k8s_beta = client.CoreV1Api()
         body = client.V1DeleteOptions(propagation_policy="Foreground", grace_period_seconds=5)
         for k8s_service in k8s_services:
+            LOG.debug("k8s_service: " + str(k8s_service))
+            LOG.debug("namespace: " + str(namespace))
+            LOG.debug("body: " + str(body))            
             try: 
-                resp = k8s_beta.delete_namespaced_service(k8s_service, namespace, body)
+                resp = k8s_beta.delete_namespaced_service(k8s_service, namespace, body=body)
             except ApiException as e:
                 LOG.error("Exception when calling CoreV1Api->delete_namespaced_service: {}".format(e))
                 status = False
