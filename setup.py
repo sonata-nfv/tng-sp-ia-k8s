@@ -50,7 +50,7 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.9',
+    version='1.0',
 
     description='5GTANGO kubernetes wrapper for NFV cloud-native deployments',
     long_description=long_description,
@@ -66,7 +66,8 @@ setup(
     license='Apache 2.0',
 
     packages=find_packages(),
-    install_requires=['amqpstorm', 'pytest', 'PyYAML', 'requests', 'pycodestyle', 'kubernetes', 'psycopg2'],
+    install_requires=['amqpstorm', 'pytest', 'PyYAML', 'requests', 'pycodestyle', 'kubernetes', 'psycopg2', 
+                      'coloredlogs', 'urllib3==1.24'],
     setup_requires=['pytest-runner'],
 
     # To provide executable scripts, use entry points in preference to the
