@@ -42,7 +42,6 @@ CNF_DEPLOY = 'infrastructure.k8s.function.deploy'
 CNF_DEPLOY_RESPONSE = 'nbi.infrastructure.k8s.function.deploy'
 CNF_FUNCTION_REMOVE = 'infrastructure.k8s.function.remove'
 CNF_SERVICE_REMOVE = 'infrastructure.k8s.service.remove'
-#CNF_PREPARE = 'infrastructure.k8s.service.prepare'
 CNF_PREPARE = 'infrastructure.k8s.service.network.create'
 CNF_CONFIGURE = 'infrastructure.k8s.function.configure'
 
