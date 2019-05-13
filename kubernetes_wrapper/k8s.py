@@ -875,7 +875,7 @@ class KubernetesWrapper(object):
         payload = yaml.dump(outg_message)
 
         corr_id = str(uuid.uuid4())
-        self.service[service_id]['act_corr_id'] = corr_id     
+        self.services[service_id]['act_corr_id'] = corr_id     
 
         self.manoconn.notify(t.CNF_SERVICE_REMOVE,
                              payload,
