@@ -834,10 +834,6 @@ class KubernetesWrapper(object):
         """
 
         outg_message = {}
-        # outg_message["service_instance_id"] = function['serv_id']
-        # outg_message['vim_uuid'] = function['vim_uuid']
-        # outg_message['vnf_uuid'] = func_id
-
         outg_message['request_status'] = "COMPLETED"
         outg_message['message'] = ""
         LOG.INFO("FUNCTION WAS REMOVED")
@@ -862,6 +858,7 @@ class KubernetesWrapper(object):
         services = self.services[service_id]
         message = engine.KubernetesWrapperEngine.remove_service(self, service_id, "default", services['vim_uuid']) 
         outg_message = {}
+        outg_message['request_status'] = "COMPLETED"
 
         if message:
             outg_message['message'] = "Error removing service: {}".format(message)
@@ -870,16 +867,21 @@ class KubernetesWrapper(object):
             outg_message['message'] = ""
             LOG.info("SERVICE WAS REMOVED")
 
-        outg_message['request_status'] = "COMPLETED"
+        payload = json.dumps(outg_message)
+        LOG.info("SERVICES REMOVE: " + str(self.services))
 
-        payload = yaml.dump(outg_message)
+        # corr_id = str(uuid.uuid4())
+        # corr_id = self.services[service_id]['orig_corr_id']
+        # self.services[service_id]['act_corr_id'] = corr_id
 
-        corr_id = str(uuid.uuid4())
-        self.service[service_id]['act_corr_id'] = corr_id     
+        corr_id = self.services[service_id]['properties'].correlation_id
+        topic = self.services[service_id]['properties'].reply_to
 
-        self.manoconn.notify(t.CNF_FUNCTION_REMOVE,
+        self.manoconn.notify(topic,
                              payload,
-                             correlation_id=corr_id)        
+                             correlation_id=corr_id)
+        LOG.debug("Replayed service remove message to MANO: {}".format(payload))
+
 
     def ia_remove_response(self, ch, method, prop, payload):
         """
@@ -938,7 +940,7 @@ class KubernetesWrapper(object):
         """
 
         message = {}
-        message["instance_uuid"] = serv_id
+        message["message"] = None
 
         if self.services[serv_id]['error'] is None:
             message["request_status"] = "COMPLETED"
