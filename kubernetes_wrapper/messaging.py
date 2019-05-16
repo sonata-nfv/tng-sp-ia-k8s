@@ -31,7 +31,7 @@
 # partner consortium (www.5gtango.eu).
 
 from amqpstorm import UriConnection
-from sonmanobase.logger import TangoLogger
+from kubernetes_wrapper.logger import TangoLogger as TangoLogger
 import logging
 import threading
 import concurrent.futures as pool
