@@ -199,7 +199,7 @@ class KubernetesWrapperEngine(object):
                                                  "sp": "sonata"})
         configmap = None
         for x, y in data.items():
-            configuration[str(normalize(x))] = str(y)
+            configuration[str(KubernetesWrapperEngine.normalize(x))] = str(y)
 
         if isinstance(configuration, dict):
             body = client.V1ConfigMap(data = configuration, metadata = metadata)
@@ -214,7 +214,7 @@ class KubernetesWrapperEngine(object):
     def overwrite_configmap(self, config_map_id, configmap, instance_uuid, env_vars, namespace = "default"):
         k8s_beta = client.CoreV1Api()
         for x, y in env_vars.items():
-            configmap.data.update({str(normalize(x)): str(y)})
+            configmap.data.update({str(KubernetesWrapperEngine.normalize(x)): str(y)})
         body = configmap
         try:
             configmap_updated = k8s_beta.patch_namespaced_config_map(name = config_map_id, namespace = namespace, 
@@ -504,9 +504,9 @@ class KubernetesWrapperEngine(object):
                 environment.append(client.V1EnvVar(name="instance_uuid", value=instance_uuid))
                 environment.append(client.V1EnvVar(name="service_uuid", value=service_uuid))
                 environment.append(client.V1EnvVar(name="container_name", value=container_name))
-                environment.append(client.V1EnvVar(name="vendor", value=normalize(cnf_yaml.get('vendor'))))
-                environment.append(client.V1EnvVar(name="name", value=normalize(cnf_yaml.get('name'))))
-                environment.append(client.V1EnvVar(name="version", value=normalize(cnf_yaml.get('version'))))
+                environment.append(client.V1EnvVar(name="vendor", value=KubernetesWrapperEngine.normalize(cnf_yaml.get('vendor'))))
+                environment.append(client.V1EnvVar(name="name", value=KubernetesWrapperEngine.normalize(cnf_yaml.get('name'))))
+                environment.append(client.V1EnvVar(name="version", value=KubernetesWrapperEngine.normalize(cnf_yaml.get('version'))))
 
                 # Configureate Pod template container
                 container = client.V1Container(
