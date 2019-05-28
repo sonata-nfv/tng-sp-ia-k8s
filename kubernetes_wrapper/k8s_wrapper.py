@@ -39,6 +39,7 @@ import concurrent.futures as pool
 import uuid
 import time
 import os
+import re
 from os import path
 import yaml, json
 import uuid
@@ -67,6 +68,11 @@ class KubernetesWrapperEngine(object):
         self.thrd_pool = pool.ThreadPoolExecutor(max_workers=100)
         # Track the workers
         self.tasks = []
+
+    def normalize(self, val):
+        res = re.sub('[^A-Za-z0-9]+', '_',  val)
+        # LOG.debug("Converted {} -> {}".format(val, res))
+        return res
 
     def get_vim_config(self, vim_uuid):
         """
@@ -159,13 +165,14 @@ class KubernetesWrapperEngine(object):
                 else:
                     LOG.info("K8S Cluster is not configured")
 
-    def get_deployment_list(self, label, namespace, watch=False, include_uninitialized=True, pretty='True' ):
+    def get_deployment_list(self, label, vim_uuid, namespace, watch=False, include_uninitialized=True, pretty='True' ):
         """
         CNF get deployment list method. This retrieve the list of deployments based on a label
         label: k8s deployment name
         namespace: Namespace where the deployment is deployed
         """
         deployment_name = None
+        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
         k8s_beta = client.ExtensionsV1beta1Api()
         try: 
             deployment_name = k8s_beta.list_namespaced_deployment(namespace=namespace, label_selector=label)
@@ -173,7 +180,8 @@ class KubernetesWrapperEngine(object):
             LOG.error("Exception when calling ExtensionsV1beta1Api->list_namespaced_deployment: %s\n" % e)
         return deployment_name.items[0].metadata.name
 
-    def create_patch_deployment(self, deployment_name, deployment_namespace):
+    def create_patch_deployment(self, deployment_name, vim_uuid, deployment_namespace):
+        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
         k8s_beta = client.ExtensionsV1beta1Api()
         patch = {"spec":{"template":{"metadata":{"annotations": {"updated_at": str(int(time.time()) * 1000)}}}}}
         try:
@@ -193,6 +201,7 @@ class KubernetesWrapperEngine(object):
                                                  "sp": "sonata"})
         configmap = None
         for x, y in data.items():
+            x = KubernetesWrapperEngine.normalize(self, str(x))
             configuration[str(x)] = str(y)
 
         if isinstance(configuration, dict):
@@ -205,9 +214,11 @@ class KubernetesWrapperEngine(object):
         LOG.debug("Configmap: {}".format(configmap))
         return configmap
 
-    def overwrite_configmap(self, config_map_id, configmap, instance_uuid, env_vars, namespace = "default"):
+    def overwrite_configmap(self, config_map_id, configmap, instance_uuid, env_vars, vim_uuid, namespace = "default"):
+        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
         k8s_beta = client.CoreV1Api()
         for x, y in env_vars.items():
+            x = KubernetesWrapperEngine.normalize(self, str(x))
             configmap.data.update({str(x): str(y)})
         body = configmap
         try:
@@ -218,13 +229,14 @@ class KubernetesWrapperEngine(object):
             LOG.error("Exception when calling V1ConfigMap->create_namespaced_config_map: %s\n" % e)
         return configmap_updated
 
-    def get_deployment(self, deployment_name, namespace, watch=False, include_uninitialized=True, pretty='True' ):
+    def get_deployment(self, deployment_name, vim_uuid, namespace, watch=False, include_uninitialized=True, pretty='True' ):
         """
         CNF get deployment method. This retrieve the deployment information object in kubernetes
         deployment: k8s deployment name
         namespace: Namespace where the deployment is deployed
         """
         deployment = None
+        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
         k8s_beta = client.ExtensionsV1beta1Api()
         try:
             deployment = k8s_beta.read_namespaced_deployment(name=deployment_name, namespace=namespace, 
@@ -234,13 +246,14 @@ class KubernetesWrapperEngine(object):
             LOG.error("Exception when calling ExtensionsV1beta1Api->read_namespaced_deployment: %s\n" % e)
         return deployment
 
-    def get_configmap(self, config_map_id, namespace, watch=False, include_uninitialized=True, pretty='True' ):
+    def get_configmap(self, config_map_id, vim_uuid, namespace, watch=False, include_uninitialized=True, pretty='True' ):
         """
         CNF get configmap method. This retrieve the configmap information object in kubernetes
         config_map_id: k8s config map id
         namespace: Namespace where the deployment is deployed
         """
         configmap = None
+        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
         k8s_beta = client.CoreV1Api()
         try:
             configmap = k8s_beta.read_namespaced_config_map(name = config_map_id, namespace = namespace, 
@@ -250,7 +263,7 @@ class KubernetesWrapperEngine(object):
             LOG.error("Exception when calling ExtensionsV1beta1Api->read_namespaced_deployment: %s\n" % e)
         return configmap
 
-    def create_deployment(self, deployment, namespace, watch=False, include_uninitialized=True, pretty='True' ):
+    def create_deployment(self, deployment, vim_uuid, namespace, watch=False, include_uninitialized=True, pretty='True' ):
         """
         CNF Instantiation method. This schedule a deployment object in kubernetes
         deployment: k8s deployment object
@@ -259,6 +272,7 @@ class KubernetesWrapperEngine(object):
         reply = {}
         status = None
         message = None
+        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
         k8s_beta = client.ExtensionsV1beta1Api()
         resp = k8s_beta.create_namespaced_deployment(
                         body=deployment, namespace=namespace , async_req=False)
@@ -299,7 +313,7 @@ class KubernetesWrapperEngine(object):
                 reply['message'] = e
                 reply['instanceName'] = str(resp.metadata.name)
                 reply['instanceVimUuid'] = "unknown"
-                reply['vimUuid'] = "unknown"
+                reply['vimUuid'] = vim_uuid
                 reply['request_status'] = "ERROR"
                 reply['ip_mapping'] = None
                 reply['vnfr'] = resp
@@ -309,13 +323,13 @@ class KubernetesWrapperEngine(object):
         reply['message'] = message
         reply['instanceName'] = str(resp.metadata.name)
         reply['instanceVimUuid'] = "unknown"
-        reply['vimUuid'] = "unknown" 
+        reply['vimUuid'] = vim_uuid
         reply['request_status'] = status
         reply['ip_mapping'] = None
         reply['vnfr'] = resp.to_dict
         return reply
 
-    def create_service(self, service, namespace, watch=False, include_uninitialized=True, pretty='True' ):
+    def create_service(self, service, vim_uuid, namespace, watch=False, include_uninitialized=True, pretty='True' ):
         """
         CNF Instantiation method. This schedule a service object in kubernetes that provide networking to a deployment
         service: k8s service object
@@ -324,6 +338,7 @@ class KubernetesWrapperEngine(object):
         reply = {}
         status = None
         message = None
+        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
         k8s_beta = client.CoreV1Api()
         resp = k8s_beta.create_namespaced_service(
                         body=service, namespace=namespace , async_req=False)
@@ -373,6 +388,7 @@ class KubernetesWrapperEngine(object):
         reply = {}
         status = None
         message = None
+        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
         k8s_beta = client.ExtensionsV1beta1Api()
 
         LOG.debug("Deleting deployments")
@@ -440,8 +456,9 @@ class KubernetesWrapperEngine(object):
             status = False
             message = str(e)
         return message
-
-    def check_pod_names(self, deployment_selector, namespace, watch=False, include_uninitialized=True, pretty='True'):
+    """
+    def check_pod_names(self, deployment_selector,vim_uuid, namespace, watch=False, include_uninitialized=True, pretty='True'):
+        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
         k8s_beta = client.CoreV1Api()
         resp = k8s_beta.list_namespaced_pod(label_selector="deployment={}".format(deployment_selector),
                         namespace=namespace , async_req=False)
@@ -451,7 +468,8 @@ class KubernetesWrapperEngine(object):
         for item in resp.items:
             cdu_reference = item.metadata.name
         return cdu_reference
-
+    """
+    
     def deployment_object(self, instance_uuid, cnf_yaml, service_uuid):
         """
         CNF modeling method. This build a deployment object in kubernetes
@@ -498,6 +516,9 @@ class KubernetesWrapperEngine(object):
                 environment.append(client.V1EnvVar(name="instance_uuid", value=instance_uuid))
                 environment.append(client.V1EnvVar(name="service_uuid", value=service_uuid))
                 environment.append(client.V1EnvVar(name="container_name", value=container_name))
+                environment.append(client.V1EnvVar(name="vendor", value=KubernetesWrapperEngine.normalize(self, cnf_yaml.get('vendor'))))
+                environment.append(client.V1EnvVar(name="name", value=KubernetesWrapperEngine.normalize(self, cnf_yaml.get('name'))))
+                environment.append(client.V1EnvVar(name="version", value=KubernetesWrapperEngine.normalize(self, cnf_yaml.get('version'))))
 
                 # Configureate Pod template container
                 container = client.V1Container(
