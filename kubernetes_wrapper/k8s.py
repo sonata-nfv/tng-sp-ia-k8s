@@ -425,11 +425,12 @@ class KubernetesWrapper(object):
         payload_dict = yaml.load(payload)
         instance_uuid = payload_dict.get("func_id")
         service_uuid = self.functions[instance_uuid]['service_instance_id']
+        vim_uuid = payload_dict.get("vim_uuid")
         LOG.debug("payload_dict: {}".format(payload_dict))
-        deployment_name = engine.KubernetesWrapperEngine.get_deployment_list(self, "instance_uuid={}".format(instance_uuid), "default")
+        deployment_name = engine.KubernetesWrapperEngine.get_deployment_list(self, "instance_uuid={}".format(instance_uuid), vim_uuid, "default")
         LOG.debug("DEPLOYMENT NAME: {}".format(deployment_name))
 
-        deployment = engine.KubernetesWrapperEngine.get_deployment(self, deployment_name, "default")
+        deployment = engine.KubernetesWrapperEngine.get_deployment(self, deployment_name, vim_uuid, "default")
         LOG.debug("DEPLOYMENT CONFIGURATION: {}".format(deployment))
 
         # Get CNF configmap
@@ -437,17 +438,17 @@ class KubernetesWrapper(object):
             for env_vars in payload_dict["envs"]:
                 config_map_id = env_vars["cdu_id"]
                 if env_vars.get("envs"):
-                    configmap = engine.KubernetesWrapperEngine.get_configmap(self, config_map_id, "default")
+                    configmap = engine.KubernetesWrapperEngine.get_configmap(self, config_map_id, vim_uuid, "default")
                     LOG.debug("Configmap: {}".format(configmap))
                     if configmap:
-                        engine.KubernetesWrapperEngine.overwrite_configmap(self, config_map_id, configmap, instance_uuid, env_vars["envs"], "default")
+                        engine.KubernetesWrapperEngine.overwrite_configmap(self, config_map_id, configmap, instance_uuid, env_vars["envs"], vim_uuid, "default")
                     else:
-                        engine.KubernetesWrapperEngine.create_configmap(self, config_map_id, instance_uuid, env_vars["envs"], service_uuid, namespace = "default")
+                        engine.KubernetesWrapperEngine.create_configmap(self, config_map_id, instance_uuid, env_vars["envs"], service_uuid, vim_uuid, namespace = "default")
 
         LOG.debug("Deployment name: {}".format(deployment_name))
         LOG.debug("Deployment: {}".format(deployment))
         # Trigger Rolling Update
-        patch = engine.KubernetesWrapperEngine.create_patch_deployment(self, deployment_name, "default")
+        patch = engine.KubernetesWrapperEngine.create_patch_deployment(self, deployment_name, vim_uuid, "default")
         LOG.debug("PATCH: {}".format(patch))
         payload = '{"request_status": "COMPLETED", "message": ""}'
 
@@ -723,7 +724,7 @@ class KubernetesWrapper(object):
         func_id = tools.funcid_from_corrid(self.functions, prop.correlation_id)
 
         msg = "Response from IA on vnf deploy call received."
-        LOG.debug("Function {}".format(func_id, msg))
+        LOG.debug("Function id {}, message= {}".format(func_id, msg))
 
         self.functions[func_id]['status'] = inc_message['request_status']
 
@@ -763,16 +764,17 @@ class KubernetesWrapper(object):
         This methods requests the deployment of a cnf
         """
         function = self.functions[func_id]
+        vim_uuid = function['vim_uuid']
         obj_deployment = engine.KubernetesWrapperEngine.deployment_object(self, function['vnfd']['instance_uuid'], function['vnfd'], function['service_instance_id'])
 
         deployment_selector = obj_deployment.spec.template.metadata.labels.get("deployment")
         obj_service = engine.KubernetesWrapperEngine.service_object(self, function['vnfd']['instance_uuid'], function['vnfd'], deployment_selector, function['service_instance_id'])
         
         LOG.info("Creating a Deployment")
-        deployment = engine.KubernetesWrapperEngine.create_deployment(self, obj_deployment, "default")        
+        deployment = engine.KubernetesWrapperEngine.create_deployment(self, obj_deployment, vim_uuid, "default")        
         
         LOG.info("Creating a Service")
-        service = engine.KubernetesWrapperEngine.create_service(self, obj_service, "default")
+        service = engine.KubernetesWrapperEngine.create_service(self, obj_service, vim_uuid, "default")
 
         outg_message = {}
         outg_message['vimUuid'] = function['vim_uuid']
@@ -856,7 +858,8 @@ class KubernetesWrapper(object):
         This method request the removal of service
         """
         services = self.services[service_id]
-        message = engine.KubernetesWrapperEngine.remove_service(self, service_id, "default", services['vim_uuid']) 
+        vim_uuid = services['vim_uuid']
+        message = engine.KubernetesWrapperEngine.remove_service(self, service_id, "default", vim_uuid) 
         outg_message = {}
         outg_message['request_status'] = "COMPLETED"
 
