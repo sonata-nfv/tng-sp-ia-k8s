@@ -191,10 +191,9 @@ class KubernetesWrapperEngine(object):
             LOG.error("Exception when calling ExtensionsV1beta1Api->:patch_namespaced_deployment %s\n" % e)
         return patch
 
-    def create_configmap(self, config_map_id, instance_uuid, env_vars, service_uuid, vim_uuid, namespace = "default"):
+    def create_configmap(self, config_map_id, instance_uuid, env_vars, service_uuid, namespace = "default"):
         configuration = {}
         data = env_vars
-        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
         k8s_beta = client.CoreV1Api()
         metadata = client.V1ObjectMeta(name = config_map_id, namespace = namespace,
                                        labels = {"instance_uuid": instance_uuid, 
@@ -457,8 +456,8 @@ class KubernetesWrapperEngine(object):
             status = False
             message = str(e)
         return message
-
-    def check_pod_names(self, deployment_selector, namespace, watch=False, include_uninitialized=True, pretty='True'):
+    """
+    def check_pod_names(self, deployment_selector,vim_uuid, namespace, watch=False, include_uninitialized=True, pretty='True'):
         KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
         k8s_beta = client.CoreV1Api()
         resp = k8s_beta.list_namespaced_pod(label_selector="deployment={}".format(deployment_selector),
@@ -469,7 +468,8 @@ class KubernetesWrapperEngine(object):
         for item in resp.items:
             cdu_reference = item.metadata.name
         return cdu_reference
-
+    """
+    
     def deployment_object(self, instance_uuid, cnf_yaml, service_uuid):
         """
         CNF modeling method. This build a deployment object in kubernetes
