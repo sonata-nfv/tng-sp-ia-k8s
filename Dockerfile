@@ -65,7 +65,7 @@ RUN python setup.py develop
 
 ADD . /tng-sp-ia-k8s
 
-ENV KUBECONFIG /tng-sp-ia-k8s/config
+# ENV KUBECONFIG /tng-sp-ia-k8s/config
 
 CMD ["tng-sp-ia-k8s"]
 
