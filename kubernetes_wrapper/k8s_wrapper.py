@@ -229,7 +229,7 @@ class KubernetesWrapperEngine(object):
             LOG.error("Exception when calling V1ConfigMap->create_namespaced_config_map: %s\n" % e)
         return configmap_updated
 
-    def get_deployment(self, deployment_name, namespace, watch=False, include_uninitialized=True, pretty='True' ):
+    def get_deployment(self, deployment_name, vim_uuid, namespace, watch=False, include_uninitialized=True, pretty='True' ):
         """
         CNF get deployment method. This retrieve the deployment information object in kubernetes
         deployment: k8s deployment name
