@@ -71,7 +71,7 @@ class KubernetesWrapperEngine(object):
 
     def normalize(self, val):
         res = re.sub('[^A-Za-z0-9]+', '_',  val)
-        LOG.debug("Converted {} -> {}".format(val, res))
+        # LOG.debug("Converted {} -> {}".format(val, res))
         return res
 
     def get_vim_config(self, vim_uuid):
