@@ -479,8 +479,7 @@ class KubernetesWrapperEngine(object):
         LOG.debug("CNFD: {}".format(cnf_yaml))
         container_list = []
         deployment_k8s = None
-        env_vars = None
-        env_from = None
+        env_vars = env_from = cpu = memory = huge_pages = gpu = sr_iov = resources = None
         if "cloudnative_deployment_units" in cnf_yaml:
             cdu = cnf_yaml.get('cloudnative_deployment_units')
             for cdu_obj in cdu:
@@ -493,11 +492,39 @@ class KubernetesWrapperEngine(object):
                 config_map_id = cdu_id
                 if cdu_obj.get('parameters'):
                     env_vars = cdu_obj['parameters'].get('env')
+                if cdu_obj.get('resource_requirements'):
+                    gpu = cdu_obj['resource_requirements'].get('gpu')
+                    cpu = cdu_obj['resource_requirements'].get('cpu')
+                    memory = cdu_obj['resource_requirements'].get('memory')
+                    sr_iov = cdu_obj['resource_requirements'].get('sr-iov')
+                    huge_pages = cdu_obj['resource_requirements'].get('huge-pages')
                 if cdu_conex:
                     for po in cdu_conex:
                         port = po.get('port')
                         port_name = po.get('id')
                         port_list.append(client.V1ContainerPort(container_port = port, name = port_name))
+
+                limits = {}
+                requests = {}
+                if gpu:
+                    LOG.debug("Features requested: {}".format(gpu))
+                    # gpu_type can be amd or nvidia
+                    for gpu_type, amount in gpu.items():
+                        limits["{}.com/gpu".format(gpu_type)] = amount
+                if cpu:
+                    # TODO
+                    pass
+                if memory:
+                    # TODO
+                    pass               
+                if sr_iov:
+                    # TODO
+                    pass                  
+                if huge_pages:
+                    # TODO
+                    pass  
+                
+                resources = client.V1ResourceRequirements(limits=limits, requests=requests)             
 
                 # Environment variables from descriptor
                 if env_vars:
@@ -520,10 +547,11 @@ class KubernetesWrapperEngine(object):
                 environment.append(client.V1EnvVar(name="name", value=KubernetesWrapperEngine.normalize(self, cnf_yaml.get('name'))))
                 environment.append(client.V1EnvVar(name="version", value=KubernetesWrapperEngine.normalize(self, cnf_yaml.get('version'))))
 
-                # Configureate Pod template container
+                # Configureate Pod template cont ainer
                 container = client.V1Container(
                     env = environment,
                     name = container_name,
+                    resources = resources,
                     image = image,
                     ports = port_list,
                     env_from = [env_from])
@@ -611,7 +639,11 @@ class KubernetesWrapperEngine(object):
                 resource["node_name"] = node["metadata"].get("name")
                 resource["core_total"] = node["status"]["capacity"].get("cpu")
                 resource["memory_total"] = node["status"]["capacity"].get("memory")
+                resource["nvidia.com/gpu_total"] = node["status"]["capacity"].get("nvidia.com/gpu")
+                resource["amd.com/gpu_total"] = node["status"]["capacity"].get("amd.com/gpu")
                 resource["memory_allocatable"] = node["status"]["allocatable"].get("memory")
+                resource["nvidia.com/gpu_allocatable"] = node["status"]["allocatable"].get("nvidia.com/gpu")
+                resource["amd.com/gpu_allocatable"] = node["status"]["allocatable"].get("amd.com/gpu")
                 resources.append(resource)
         # Response:
         # { resources: [{ node-name: k8s, core_total: 16, memory_total: 32724804, memory_allocatable: 32724804}] }
