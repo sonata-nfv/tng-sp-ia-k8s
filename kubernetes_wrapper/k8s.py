@@ -528,10 +528,10 @@ class KubernetesWrapper(object):
             vim["memory_total"] = 0
             vim["cpu_used"] = 0
             vim["memory_used"] = 0
-            vim["nvidia_com_gpu_total"] = 0
-            vim["nvidia_com_gpu_allocatable"] = 0
-            vim["amd_com_gpu_total"] = 0
-            vim["amd_com_gpu_allocatable"] = 0
+            vim["nvidia_gpu_total"] = 0
+            vim["nvidia_gpu_allocatable"] = 0
+            vim["amd_gpu_total"] = 0
+            vim["amd_gpu_allocatable"] = 0
 
             for cores in obj_resource:
                 vim["core_total"] += int(cores["core_total"])
@@ -544,10 +544,10 @@ class KubernetesWrapper(object):
                 memt = int(mem_t[0:-2])
                 vim["memory_total"] += memt
             for gpu in obj_resource:
-                vim["nvidia_com_gpu_total"]+= int(gpu["nvidia_com_gpu_total"])
-                vim["nvidia_com_gpu_allocatable"] += int(gpu["nvidia_com_gpu_allocatable"])
-                vim["amd_com_gpu_total"] += int(gpu["amd_com_gpu_total"])
-                vim["amd_com_gpu_allocatable"] += int(gpu["amd_com_gpu_allocatable"])
+                vim["nvidia_gpu_total"]+= int(gpu["nvidia_gpu_total"])
+                vim["nvidia_gpu_allocatable"] += int(gpu["nvidia_gpu_allocatable"])
+                vim["amd_gpu_total"] += int(gpu["amd_gpu_total"])
+                vim["amd_gpu_allocatable"] += int(gpu["amd_gpu_allocatable"])
 
             if cpu_used:
                 vim["cpu_used"] = cpu_used
