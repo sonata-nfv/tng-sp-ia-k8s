@@ -528,10 +528,10 @@ class KubernetesWrapper(object):
             vim["memory_total"] = 0
             vim["cpu_used"] = 0
             vim["memory_used"] = 0
-            vim["nvidia.com/gpu_total"] = 0
-            vim["nvidia.com/gpu_allocatable"] = 0
-            vim["amd.com/gpu_total"] = 0
-            vim["amd.com/gpu_allocatable"] = 0
+            vim["nvidia_com_gpu_total"] = 0
+            vim["nvidia_com_gpu_allocatable"] = 0
+            vim["amd_com_gpu_total"] = 0
+            vim["amd_com_gpu_allocatable"] = 0
 
             for cores in obj_resource:
                 vim["core_total"] += int(cores["core_total"])
