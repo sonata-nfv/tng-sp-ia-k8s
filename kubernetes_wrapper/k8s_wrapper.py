@@ -639,11 +639,11 @@ class KubernetesWrapperEngine(object):
                 resource["node_name"] = node["metadata"].get("name")
                 resource["core_total"] = node["status"]["capacity"].get("cpu")
                 resource["memory_total"] = node["status"]["capacity"].get("memory")
-                resource["nvidia.com/gpu_total"] = node["status"]["capacity"].get("nvidia.com/gpu")
-                resource["amd.com/gpu_total"] = node["status"]["capacity"].get("amd.com/gpu")
+                resource["nvidia.com/gpu_total"] = node["status"]["capacity"].get("nvidia.com/gpu", 0)
+                resource["amd.com/gpu_total"] = node["status"]["capacity"].get("amd.com/gpu", 0)
                 resource["memory_allocatable"] = node["status"]["allocatable"].get("memory")
-                resource["nvidia.com/gpu_allocatable"] = node["status"]["allocatable"].get("nvidia.com/gpu")
-                resource["amd.com/gpu_allocatable"] = node["status"]["allocatable"].get("amd.com/gpu")
+                resource["nvidia.com/gpu_allocatable"] = node["status"]["allocatable"].get("nvidia.com/gpu", 0)
+                resource["amd.com/gpu_allocatable"] = node["status"]["allocatable"].get("amd.com/gpu", 0)
                 resources.append(resource)
         # Response:
         # { resources: [{ node-name: k8s, core_total: 16, memory_total: 32724804, memory_allocatable: 32724804}] }
