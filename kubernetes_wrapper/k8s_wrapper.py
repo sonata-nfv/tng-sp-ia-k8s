@@ -479,10 +479,10 @@ class KubernetesWrapperEngine(object):
         LOG.debug("CNFD: {}".format(cnf_yaml))
         container_list = []
         deployment_k8s = None
-        env_vars = env_from = cpu = memory = huge_pages = gpu = sr_iov = resources = None
         if "cloudnative_deployment_units" in cnf_yaml:
             cdu = cnf_yaml.get('cloudnative_deployment_units')
             for cdu_obj in cdu:
+                env_vars = env_from = cpu = memory = huge_pages = gpu = sr_iov = resources = None
                 port_list = []
                 environment = []
                 cdu_id = cdu_obj.get('id')
@@ -639,11 +639,11 @@ class KubernetesWrapperEngine(object):
                 resource["node_name"] = node["metadata"].get("name")
                 resource["core_total"] = node["status"]["capacity"].get("cpu")
                 resource["memory_total"] = node["status"]["capacity"].get("memory")
-                resource["nvidia.com/gpu_total"] = node["status"]["capacity"].get("nvidia.com/gpu", 0)
-                resource["amd.com/gpu_total"] = node["status"]["capacity"].get("amd.com/gpu", 0)
+                resource["nvidia_gpu_total"] = node["status"]["capacity"].get("nvidia.com/gpu", 0)
+                resource["amd_gpu_total"] = node["status"]["capacity"].get("amd.com/gpu", 0)
                 resource["memory_allocatable"] = node["status"]["allocatable"].get("memory")
-                resource["nvidia.com/gpu_allocatable"] = node["status"]["allocatable"].get("nvidia.com/gpu", 0)
-                resource["amd.com/gpu_allocatable"] = node["status"]["allocatable"].get("amd.com/gpu", 0)
+                resource["nvidia_gpu_allocatable"] = node["status"]["allocatable"].get("nvidia.com/gpu", 0)
+                resource["amd_gpu_allocatable"] = node["status"]["allocatable"].get("amd.com/gpu", 0)
                 resources.append(resource)
         # Response:
         # { resources: [{ node-name: k8s, core_total: 16, memory_total: 32724804, memory_allocatable: 32724804}] }

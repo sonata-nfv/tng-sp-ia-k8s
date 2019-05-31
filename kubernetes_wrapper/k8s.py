@@ -544,10 +544,10 @@ class KubernetesWrapper(object):
                 memt = int(mem_t[0:-2])
                 vim["memory_total"] += memt
             for gpu in obj_resource:
-                vim["nvidia.com/gpu_total"]+= int(gpu["nvidia.com/gpu_total"])
-                vim["nvidia.com/gpu_allocatable"] += int(gpu["nvidia.com/gpu_allocatable"])
-                vim["amd.com/gpu_total"] += int(gpu["amd.com/gpu_total"])
-                vim["amd.com/gpu_allocatable"] += int(gpu["amd.com/gpu_allocatable"])         
+                vim["nvidia_com_gpu_total"]+= int(gpu["nvidia_com_gpu_total"])
+                vim["nvidia_com_gpu_allocatable"] += int(gpu["nvidia_com_gpu_allocatable"])
+                vim["amd_com_gpu_total"] += int(gpu["amd_com_gpu_total"])
+                vim["amd_com_gpu_allocatable"] += int(gpu["amd_com_gpu_allocatable"])
 
             if cpu_used:
                 vim["cpu_used"] = cpu_used
