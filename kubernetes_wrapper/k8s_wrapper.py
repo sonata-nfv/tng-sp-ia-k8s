@@ -46,6 +46,7 @@ import uuid
 from pprint import pprint
 from copy import deepcopy
 import psycopg2
+import requests
 from kubernetes_wrapper.logger import TangoLogger
 
 LOG = TangoLogger.getLogger(__name__, log_level=logging.DEBUG, log_json=True)
@@ -73,6 +74,15 @@ class KubernetesWrapperEngine(object):
         res = re.sub('[^A-Za-z0-9]+', '_',  val)
         # LOG.debug("Converted {} -> {}".format(val, res))
         return res
+
+    def check_connection(self):
+        url = 'http://www.google.com'
+        timeout = 5
+        try:
+            _ = requests.get(url, timeout=timeout)
+            return 'Always'
+        except requests.ConnectionError:
+            return 'IfNotPresent'
 
     def get_vim_config(self, vim_uuid):
         """
@@ -547,12 +557,15 @@ class KubernetesWrapperEngine(object):
                 environment.append(client.V1EnvVar(name="name", value=KubernetesWrapperEngine.normalize(self, cnf_yaml.get('name'))))
                 environment.append(client.V1EnvVar(name="version", value=KubernetesWrapperEngine.normalize(self, cnf_yaml.get('version'))))
 
+                image_pull_policy = KubernetesWrapperEngine.check_connection()
+
                 # Configureate Pod template cont ainer
                 container = client.V1Container(
                     env = environment,
                     name = container_name,
                     resources = resources,
                     image = image,
+                    image_pull_policy = image_pull_policy,
                     ports = port_list,
                     env_from = [env_from])
                 container_list.append(container)
