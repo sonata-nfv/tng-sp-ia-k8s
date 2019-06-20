@@ -557,7 +557,7 @@ class KubernetesWrapperEngine(object):
                 environment.append(client.V1EnvVar(name="name", value=KubernetesWrapperEngine.normalize(self, cnf_yaml.get('name'))))
                 environment.append(client.V1EnvVar(name="version", value=KubernetesWrapperEngine.normalize(self, cnf_yaml.get('version'))))
 
-                image_pull_policy = KubernetesWrapperEngine.check_connection()
+                image_pull_policy = KubernetesWrapperEngine.check_connection(self)
 
                 # Configureate Pod template cont ainer
                 container = client.V1Container(
