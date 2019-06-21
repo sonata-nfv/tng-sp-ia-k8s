@@ -64,7 +64,7 @@ class TangoLogger(object):
         "threadName":"MainThread",
         "start_stop":"START",
         "lineno":73,
-        "timestamp":"2018-11-15 19:25:49.348161 UTC"
+        "app_timestamp":"2018-11-15 19:25:49.348161 UTC"
     }
     """
 
@@ -145,7 +145,7 @@ class TangoJsonLogHandler(logging.StreamHandler):
         d = {
             # TANGO default fields
             "type": record.levelname[0],
-            "timestamp": "{} UTC".format(datetime.datetime.utcnow()),
+            "log_timestamp": "{} UTC".format(datetime.datetime.utcnow()),
             "start_stop": record.__dict__.get("start_stop", ""),
             "component": record.name,
             "operation": record.__dict__.get("operation", record.funcName),
