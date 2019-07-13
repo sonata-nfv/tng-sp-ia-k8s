@@ -443,7 +443,7 @@ class KubernetesWrapper(object):
                     if configmap:
                         engine.KubernetesWrapperEngine.overwrite_configmap(self, config_map_id, configmap, instance_uuid, env_vars["envs"], vim_uuid, "default")
                     else:
-                        engine.KubernetesWrapperEngine.create_configmap(self, config_map_id, instance_uuid, env_vars["envs"], service_uuid, vim_uuid, namespace = "default")
+                        engine.KubernetesWrapperEngine.create_configmap(self, config_map_id, instance_uuid, env_vars["envs"], service_uuid, vim_uuid, 'default')
 
         LOG.debug("Deployment name: {}".format(deployment_name))
         LOG.debug("Deployment: {}".format(deployment))
@@ -772,18 +772,23 @@ class KubernetesWrapper(object):
         """
         This methods requests the deployment of a cnf
         """
+        replicas = 0
         function = self.functions[func_id]
         vim_uuid = function['vim_uuid']
-        obj_deployment = engine.KubernetesWrapperEngine.deployment_object(self, function['vnfd']['instance_uuid'], function['vnfd'], function['service_instance_id'])
-
-        deployment_selector = obj_deployment.spec.template.metadata.labels.get("deployment")
-        obj_service = engine.KubernetesWrapperEngine.service_object(self, function['vnfd']['instance_uuid'], function['vnfd'], deployment_selector, function['service_instance_id'])
-        
-        LOG.info("Creating a Deployment")
-        deployment = engine.KubernetesWrapperEngine.create_deployment(self, obj_deployment, vim_uuid, "default")        
-        
-        LOG.info("Creating a Service")
-        service = engine.KubernetesWrapperEngine.create_service(self, obj_service, vim_uuid, "default")
+        LOG.info("")
+        instance, replicas = engine.KubernetesWrapperEngine.get_deployment_list(self, "descriptor_uuid={}".format(function['vnfd']['uuid']), function['vim_uuid'], 'default')
+        if instance:
+            deployment, service = engine.KubernetesWrapperEngine.scale_out_instance(self, instance, replicas, vim_uuid, 'default')
+        else:
+            obj_deployment = engine.KubernetesWrapperEngine.deployment_object(self, function['vnfd']['instance_uuid'], function['vnfd'], function['service_instance_id'])
+            deployment_selector = obj_deployment.spec.template.metadata.labels.get("deployment")
+            obj_service = engine.KubernetesWrapperEngine.service_object(self, function['vnfd']['instance_uuid'], function['vnfd'], deployment_selector, function['service_instance_id'])
+            
+            LOG.info("Creating a Deployment")
+            deployment = engine.KubernetesWrapperEngine.create_deployment(self, obj_deployment, vim_uuid, "default")        
+            
+            LOG.info("Creating a Service")
+            service = engine.KubernetesWrapperEngine.create_service(self, obj_service, vim_uuid, "default")
 
         outg_message = {}
         outg_message['vimUuid'] = function['vim_uuid']
@@ -810,13 +815,14 @@ class KubernetesWrapper(object):
             cloudnative_deployment_unit['number_of_instances'] = 1                  # TODO: update this value
             cloudnative_deployment_unit['load_balancer_ip'] = service.get('ip_mapping')[0]
             cloudnative_deployment_unit['connection_points'] = []
-            for cp_item in service["vnfr"].spec.ports:
-                connection_point = {}
-                connection_point["id"] = cp_item.name
-                connection_point["type"] = "serviceendpoint"
-                connection_point["port"] = cp_item.port
-                cloudnative_deployment_unit['connection_points'].append(connection_point)
-            cloudnative_deployment_units.append(cloudnative_deployment_unit)
+            if service["vnfr"].spec.ports:
+                for cp_item in service["vnfr"].spec.ports:
+                    connection_point = {}
+                    connection_point["id"] = cp_item.name
+                    connection_point["type"] = "serviceendpoint"
+                    connection_point["port"] = cp_item.port
+                    cloudnative_deployment_unit['connection_points'].append(connection_point)
+                cloudnative_deployment_units.append(cloudnative_deployment_unit)
         outg_message['vnfr']['cloudnative_deployment_units'] = cloudnative_deployment_units
         outg_message['vnfr']['name'] = function['vnfd']['name']
 
