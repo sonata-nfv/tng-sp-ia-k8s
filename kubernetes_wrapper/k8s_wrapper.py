@@ -89,7 +89,7 @@ class KubernetesWrapperEngine(object):
         Write in database the preparation of the service before instantiation
         This data will be used by ia-nbi to match service vim
         """
-
+        connection = None
         try:
             connection = psycopg2.connect(user = os.getenv("POSTGRES_USER") or "sonata",
                                           password = os.getenv("POSTGRES_PASSWORD") or "sonatatest",
@@ -123,7 +123,7 @@ class KubernetesWrapperEngine(object):
         """
         Get the list of VIMs registered in the database
         """
-
+        connection = None
         try:
             connection = psycopg2.connect(user = os.getenv("POSTGRES_USER") or "sonata",
                                           password = os.getenv("POSTGRES_PASSWORD") or "sonatatest",
@@ -188,7 +188,10 @@ class KubernetesWrapperEngine(object):
             deployment_name = k8s_beta.list_namespaced_deployment(namespace=namespace, label_selector=label)
         except ApiException as e:
             LOG.error("Exception when calling ExtensionsV1beta1Api->list_namespaced_deployment: %s\n" % e)
-        return deployment_name.items[0].metadata.name
+        if deployment_name.items:
+            return deployment_name.items[0].metadata.name, deployment_name.items[0].spec.replicas
+        else:
+            return None, 0
 
     def create_patch_deployment(self, deployment_name, vim_uuid, deployment_namespace):
         KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
@@ -238,6 +241,51 @@ class KubernetesWrapperEngine(object):
         except ApiException as e:
             LOG.error("Exception when calling V1ConfigMap->create_namespaced_config_map: %s\n" % e)
         return configmap_updated
+
+    def scale_out_instance(self, deployment_name, replicas, vim_uuid, namespace):
+        """
+        CNF get deployment method. This retrieve the deployment information object in kubernetes
+        deployment: k8s deployment name
+        namespace: Namespace where the deployment is deployed
+        """
+        service = {}
+        ports = None
+        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
+        k8s_beta = client.ExtensionsV1beta1Api()
+        client_k8s = client.CoreV1Api()
+        patch = {"spec":{"replicas": int(replicas) + 1}}
+        try:
+            patch = k8s_beta.patch_namespaced_deployment_scale(name=deployment_name, namespace=namespace, 
+                                                               body=patch, pretty='true')
+        except ApiException as e:
+            LOG.error("Exception when calling ExtensionsV1beta1Api->:patch_namespaced_deployment %s\n" % e)
+        try:
+            deployment = k8s_beta.read_namespaced_deployment(name=deployment_name, namespace=namespace, 
+                                                             exact=False, export=False)
+        except ApiException as e:
+            LOG.error("Exception when calling ExtensionsV1beta1Api->read_namespaced_deployment: %s\n" % e)
+        try:
+            resp = client_k8s.read_namespaced_service(name=deployment_name, namespace=namespace, 
+                                                            exact=False, export=False)
+            service['message'] = "COMPLETED"
+            service['ip_mapping'] = []
+
+            loadbalancerip = resp.status.load_balancer.ingress[0].ip
+
+            LOG.debug("loadbalancerip: {}".format(loadbalancerip))
+            
+            internal_ip = resp.spec.cluster_ip       
+            ports = resp.spec.ports
+            
+            mapping = { "internal_ip": internal_ip, "floating_ip": loadbalancerip }
+            service['ip_mapping'].append(mapping)
+            if ports:
+                service['ports'] = ports
+            service['vnfr'] = resp
+        except ApiException as e:
+            LOG.error("Exception when calling ExtensionsV1beta1Api->read_namespaced_deployment: %s\n" % e)
+
+        return deployment, service
 
     def get_deployment(self, deployment_name, vim_uuid, namespace, watch=False, include_uninitialized=True, pretty='True' ):
         """
@@ -579,7 +627,8 @@ class KubernetesWrapperEngine(object):
             metadata=client.V1ObjectMeta(labels={'deployment': deployment_label,
                                                  'instance_uuid': cnf_yaml['instance_uuid'],
                                                  'service_uuid': service_uuid,
-                                                 "sp": "sonata"}
+                                                 'sp': "sonata",
+                                                 'descriptor_uuid': cnf_yaml['uuid']} 
                                                  ),
             spec=client.V1PodSpec(containers=container_list))
         # Create the specification of deployment
@@ -645,18 +694,34 @@ class KubernetesWrapperEngine(object):
         api = client.CoreV1Api()
         nodes = api.list_node().to_dict()
         resources = []
-        
         if nodes.get("items"):
             for node in nodes["items"]:
+                # LOG.debug("STATUS: {}".format(node["status"]))
                 resource = {}
                 resource["node_name"] = node["metadata"].get("name")
+                # pods = api.list_namespaced_pod(namespace="default", field_selector="spec.nodeName={}".format(resource["node_name"])).to_dict()
+                # amd_gpu = 0
+                # nvidia_gpu = 0
+                # LOG.debug("PODS.ITEMS: {}".format(dict(pods.items)))
+                # for pod in dict(pods.items):
+                #     LOG.debug("pod: {}".format(pod))
+                #     for container in pod.spec.containers:
+                #         if container.resources:
+                #             LOG.debug("container.resources.limits: {}".format(container.resources.limits))
+                #             limits = container.resource.limits
+                #             if "amd.com/gpu" in limits:                        
+                #                 amd_gpu += 1
+                #             if "nvidia.com/gpu" in limits:
+                #                 nvidia_gpu += 1
                 resource["core_total"] = node["status"]["capacity"].get("cpu")
                 resource["memory_total"] = node["status"]["capacity"].get("memory")
                 resource["amd_gpu_total"] = node["status"]["capacity"].get("amd.com/gpu", 0)
                 resource["nvidia_gpu_total"] = node["status"]["capacity"].get("nvidia.com/gpu", 0)
                 resource["memory_allocatable"] = node["status"]["allocatable"].get("memory")
                 resource["amd_gpu_allocatable"] = node["status"]["allocatable"].get("amd.com/gpu", 0)
+                # resource["amd_gpu_allocatable"] = amd_gpu
                 resource["nvidia_gpu_allocatable"] = node["status"]["allocatable"].get("nvidia.com/gpu", 0)
+                # resource["nvidia_gpu_allocatable"] = nvidia_gpu
                 resources.append(resource)
         # Response:
         # { resources: [{ node-name: k8s, core_total: 16, memory_total: 32724804, memory_allocatable: 32724804}] }
