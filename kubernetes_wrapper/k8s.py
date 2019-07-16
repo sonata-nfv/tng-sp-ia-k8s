@@ -610,19 +610,19 @@ class KubernetesWrapper(object):
             send_error_response(error, None)
             return
 
-        if 'cnf_id' not in message.keys():
-            error = 'cnf_uuid key not provided'
+        if 'vnf_uuid' not in message.keys():
+            error = 'function uuid key not provided'
             send_error_response(error, None)
             return
 
         func_id = message['cnf_id']
 
-        if 'serv_id' not in message.keys():
+        if 'service_instance_id' not in message.keys():
             error = 'serv_id key not provided'
             send_error_response(error, func_id)
 
-        if 'vim_id' not in message.keys():
-            error = 'vim_id key not provided'
+        if 'vim_uuid' not in message.keys():
+            error = 'vim_uuid key not provided'
             send_error_response(error, func_id)
 
         cnf = self.functions[func_id]
