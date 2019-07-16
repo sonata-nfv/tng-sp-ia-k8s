@@ -826,8 +826,8 @@ class KubernetesWrapper(object):
         outg_message['vnfr']['cloudnative_deployment_units'] = cloudnative_deployment_units
         outg_message['vnfr']['name'] = function['vnfd']['name']
 
-        if service['ports']:
-            outg_message['vnfr']['descriptor_reference'] = func_id
+        # if service['ports']:
+        #     outg_message['vnfr']['descriptor_reference'] = func_id
 
         outg_message['message'] = ""
         payload = yaml.dump(outg_message)
