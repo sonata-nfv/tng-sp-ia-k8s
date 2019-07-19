@@ -242,9 +242,9 @@ class KubernetesWrapperEngine(object):
             LOG.error("Exception when calling V1ConfigMap->create_namespaced_config_map: %s\n" % e)
         return configmap_updated
 
-    def scale_out_instance(self, deployment_name, replicas, vim_uuid, namespace):
+    def scale_instance(self, deployment_name, replicas, vim_uuid, namespace, operation):
         """
-        CNF get deployment method. This retrieve the deployment information object in kubernetes
+        CNF scale in method. This remove one CNF from kubernetes deployment
         deployment: k8s deployment name
         namespace: Namespace where the deployment is deployed
         """
@@ -253,7 +253,10 @@ class KubernetesWrapperEngine(object):
         KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
         k8s_beta = client.ExtensionsV1beta1Api()
         client_k8s = client.CoreV1Api()
-        patch = {"spec":{"replicas": int(replicas) + 1}}
+        if operation == "in":
+            patch = {"spec":{"replicas": int(replicas) - 1}}
+        elif operation == "out":
+            patch = {"spec":{"replicas": int(replicas) + 1}}
         try:
             patch = k8s_beta.patch_namespaced_deployment_scale(name=deployment_name, namespace=namespace, 
                                                                body=patch, pretty='true')
@@ -441,7 +444,7 @@ class KubernetesWrapperEngine(object):
         """
         CNF remove method. This remove a service
         service: k8s service object
-        namespace: Namespace where the service will be deployed
+        namespace: Namespace where the service is deployed
         """
         reply = {}
         status = None
@@ -514,19 +517,6 @@ class KubernetesWrapperEngine(object):
             status = False
             message = str(e)
         return message
-    """
-    def check_pod_names(self, deployment_selector,vim_uuid, namespace, watch=False, include_uninitialized=True, pretty='True'):
-        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
-        k8s_beta = client.CoreV1Api()
-        resp = k8s_beta.list_namespaced_pod(label_selector="deployment={}".format(deployment_selector),
-                        namespace=namespace , async_req=False)
-        
-        # TODO: for now just 1 replica. In future we will need the all PODs names
-        cdu_reference_list = None
-        for item in resp.items:
-            cdu_reference = item.metadata.name
-        return cdu_reference
-    """
     
     def deployment_object(self, instance_uuid, cnf_yaml, service_uuid):
         """
