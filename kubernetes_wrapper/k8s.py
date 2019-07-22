@@ -232,7 +232,8 @@ class KubernetesWrapper(object):
 
         # Add the function to the ledger and add instance ids
         self.functions[func_id] = {}
-        self.functions[func_id]['vnfd'] = payload['vnfd']
+        if topic != t.CNF_FUNCTION_REMOVE:
+            self.functions[func_id]['vnfd'] = payload['vnfd']
         self.functions[func_id]['id'] = func_id
 
         # Add the topic of the call
@@ -610,28 +611,25 @@ class KubernetesWrapper(object):
             send_error_response(error, None)
             return
 
-        if 'cnf_id' not in message.keys():
-            error = 'cnf_uuid key not provided'
+        if 'vnf_uuid' not in message.keys():
+            error = 'vnf_uuid key not provided'
             send_error_response(error, None)
             return
 
-        func_id = message['cnf_id']
+        func_id = message['vnf_uuid']
 
-        if 'serv_id' not in message.keys():
-            error = 'serv_id key not provided'
+        # Add the function to the ledger
+        self.add_function_to_ledger(message, corr_id, func_id, t.CNF_FUNCTION_REMOVE)
+
+        if 'service_instance_id' not in message.keys():
+            error = 'service_instance_id key not provided'
             send_error_response(error, func_id)
 
-        if 'vim_id' not in message.keys():
-            error = 'vim_id key not provided'
+        if 'vim_uuid' not in message.keys():
+            error = 'vim_uuid key not provided'
             send_error_response(error, func_id)
 
-        cnf = self.functions[func_id]
-        if cnf['error'] is not None:
-            send_error_response(cnf['error'], func_id)
-
-        if cnf['vnfr']['status'] == 'terminated':
-            error = 'CNF is already terminated'
-            send_error_response(error, func_id)
+        LOG.info("Functions: {}".format(self.functions))
 
         # Schedule the tasks that the K8S Wrapper should do for this request.
         add_schedule = []
@@ -778,7 +776,7 @@ class KubernetesWrapper(object):
         LOG.info("")
         instance, replicas = engine.KubernetesWrapperEngine.get_deployment_list(self, "descriptor_uuid={}".format(function['vnfd']['uuid']), function['vim_uuid'], 'default')
         if instance:
-            deployment, service = engine.KubernetesWrapperEngine.scale_out_instance(self, instance, replicas, vim_uuid, 'default')
+            deployment, service = engine.KubernetesWrapperEngine.scale_instance(self, instance, replicas, vim_uuid, 'default', 'out')
         else:
             obj_deployment = engine.KubernetesWrapperEngine.deployment_object(self, function['vnfd']['instance_uuid'], function['vnfd'], function['service_instance_id'])
             deployment_selector = obj_deployment.spec.template.metadata.labels.get("deployment")
@@ -849,11 +847,27 @@ class KubernetesWrapper(object):
         """
         This method request the removal of a vnf
         """
-
+        replicas = 0
+        function = self.functions[func_id]
+        vim_uuid = function['vim_uuid']
+        message = None
         outg_message = {}
         outg_message['request_status'] = "COMPLETED"
         outg_message['message'] = ""
-        LOG.INFO("FUNCTION WAS REMOVED")
+        instance, replicas = engine.KubernetesWrapperEngine.get_deployment_list(self, "instance_uuid={}".format(func_id), function['vim_uuid'], 'default')
+        if replicas > 1:
+            engine.KubernetesWrapperEngine.scale_instance(self, instance, replicas, vim_uuid, 'default', 'in')
+        else:
+            outg_message['request_status'] = "ERROR"
+            message = "CNF cannot be scale to 0 instances, please use deployment delete"
+        functions = self.functions[func_id]
+        vim_uuid = functions['vim_uuid']
+        if message:
+            outg_message['message'] = "Error removing function: {}".format(message)
+            LOG.error("Error removing function: {}".format(message))
+        else:
+            outg_message['message'] = ""
+            LOG.info("FUNCTION WAS REMOVED")
 
         payload = yaml.dump(outg_message)
 
@@ -888,10 +902,6 @@ class KubernetesWrapper(object):
         payload = json.dumps(outg_message)
         LOG.info("SERVICES REMOVE: " + str(self.services))
 
-        # corr_id = str(uuid.uuid4())
-        # corr_id = self.services[service_id]['orig_corr_id']
-        # self.services[service_id]['act_corr_id'] = corr_id
-
         corr_id = self.services[service_id]['properties'].correlation_id
         topic = self.services[service_id]['properties'].reply_to
 
@@ -899,7 +909,6 @@ class KubernetesWrapper(object):
                              payload,
                              correlation_id=corr_id)
         LOG.debug("Replayed service remove message to MANO: {}".format(payload))
-
 
     def ia_remove_response(self, ch, method, prop, payload):
         """
