@@ -773,7 +773,6 @@ class KubernetesWrapper(object):
         replicas = 0
         function = self.functions[func_id]
         vim_uuid = function['vim_uuid']
-        LOG.info("")
         instance, replicas = engine.KubernetesWrapperEngine.get_deployment_list(self, "descriptor_uuid={}".format(function['vnfd']['uuid']), function['vim_uuid'], 'default')
         if instance:
             deployment, service = engine.KubernetesWrapperEngine.scale_instance(self, instance, replicas, vim_uuid, 'default', 'out')
@@ -850,6 +849,7 @@ class KubernetesWrapper(object):
         replicas = 0
         function = self.functions[func_id]
         vim_uuid = function['vim_uuid']
+        service_uuid = function['service_instance_id']
         message = None
         outg_message = {}
         outg_message['request_status'] = "COMPLETED"
@@ -858,10 +858,8 @@ class KubernetesWrapper(object):
         if replicas > 1:
             engine.KubernetesWrapperEngine.scale_instance(self, instance, replicas, vim_uuid, 'default', 'in')
         else:
-            outg_message['request_status'] = "ERROR"
-            message = "CNF cannot be scale to 0 instances, please use deployment delete"
-        functions = self.functions[func_id]
-        vim_uuid = functions['vim_uuid']
+            LOG.info("Deleting the service: {} from VIM: {}".format(service_uuid, vim_uuid))
+            message = engine.KubernetesWrapperEngine.remove_service(self, service_uuid, 'default', vim_uuid, watch=False, include_uninitialized=True, pretty='True')
         if message:
             outg_message['message'] = "Error removing function: {}".format(message)
             LOG.error("Error removing function: {}".format(message))
