@@ -204,9 +204,10 @@ class KubernetesWrapperEngine(object):
             LOG.error("Exception when calling ExtensionsV1beta1Api->:patch_namespaced_deployment %s\n" % e)
         return patch
 
-    def create_configmap(self, config_map_id, instance_uuid, env_vars, service_uuid, namespace = "default"):
+    def create_configmap(self, config_map_id, instance_uuid, env_vars, service_uuid, vim_uuid, namespace = "default"):
         configuration = {}
         data = env_vars
+        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
         k8s_beta = client.CoreV1Api()
         metadata = client.V1ObjectMeta(name = config_map_id, namespace = namespace,
                                        labels = {"instance_uuid": instance_uuid, 
