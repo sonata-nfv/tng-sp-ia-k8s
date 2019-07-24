@@ -778,7 +778,7 @@ class KubernetesWrapper(object):
         if instance:
             deployment, service = engine.KubernetesWrapperEngine.scale_instance(self, instance, replicas, vim_uuid, 'default', 'out')
         else:
-            obj_deployment = engine.KubernetesWrapperEngine.deployment_object(self, function['vnfd']['instance_uuid'], function['vnfd'], function['service_instance_id'])
+            obj_deployment = engine.KubernetesWrapperEngine.deployment_object(self, function['vnfd']['instance_uuid'], function['vnfd'], function['service_instance_id'], vim_uuid)
             deployment_selector = obj_deployment.spec.template.metadata.labels.get("deployment")
             obj_service = engine.KubernetesWrapperEngine.service_object(self, function['vnfd']['instance_uuid'], function['vnfd'], deployment_selector, function['service_instance_id'])
             
