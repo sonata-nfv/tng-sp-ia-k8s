@@ -161,6 +161,9 @@ class KubernetesWrapper(object):
         # The topic on service preparation requests are posted.
         self.manoconn.subscribe(self.prepare_service, t.CNF_PREPARE)
         LOG.info("{} Created".format(t.CNF_PREPARE))
+        # The topic on service unpreparation requests are posted.
+        self.manoconn.subscribe(self.unprepare_service, t.CNF_UNPREPARE)
+        LOG.info("{} Created".format(t.CNF_UNPREPARE))
          # The topic on which list the cluster resources.
         self.manoconn.subscribe(self.function_list_resources, t.NODE_LIST)
         LOG.info("{} Created".format(t.NODE_LIST))
@@ -220,7 +223,7 @@ class KubernetesWrapper(object):
         else:
             del self.functions[func_id]
 
-    def add_function_to_ledger(self, payload, corr_id, func_id, topic):
+    def add_function_to_ledger(self, payload, corr_id, func_id, topic, properties):
         """
         This method adds new functions with their specifics to the ledger,
         so other functions can use this information.
@@ -235,6 +238,7 @@ class KubernetesWrapper(object):
         if topic != t.CNF_FUNCTION_REMOVE:
             self.functions[func_id]['vnfd'] = payload['vnfd']
         self.functions[func_id]['id'] = func_id
+        self.functions[func_id]['properties'] = properties
 
         # Add the topic of the call
         self.functions[func_id]['topic'] = topic
@@ -416,6 +420,30 @@ class KubernetesWrapper(object):
                              correlation_id=corr_id)
         LOG.debug("Replayed preparation message to MANO: {}".format(payload))
 
+    def unprepare_service(self, ch, method, properties, payload):
+        # Don't trigger on self created messages
+        if self.name == properties.app_id:
+            return 
+
+        # Extract the correlation id
+        corr_id = properties.correlation_id
+
+        payload_dict = yaml.load(payload)
+        instance_uuid = payload_dict.get("instance_id")
+        # TODO: CLEAN THE PREPARATION
+        # Write info to database
+        # for vim_list in payload_dict["vim_list"]:
+        #    vim_uuid = vim_list.get("uuid")
+        #    self.write_service_prep(instance_uuid, vim_uuid)
+
+        payload = '{"request_status": "COMPLETED", "message": ""}'
+
+        # Contact the IA
+        self.manoconn.notify(properties.reply_to,
+                             payload,
+                             correlation_id=corr_id)
+        LOG.debug("Replayed preparation message to MANO: {}".format(payload))
+
     def configure_function(self, ch, method, properties, payload):
         # Don't trigger on self created messages
         if self.name == properties.app_id:
@@ -479,7 +507,7 @@ class KubernetesWrapper(object):
         func_id = message['vnfd']['instance_uuid']    # TODO: Check if this is the correct uuid
 
         # Add the function to the ledger
-        self.add_function_to_ledger(message, corr_id, func_id, t.CNF_DEPLOY)
+        self.add_function_to_ledger(message, corr_id, func_id, t.CNF_DEPLOY, properties)
 
         # Schedule the tasks that the Wrapper should do for this request.
         add_schedule = []
@@ -619,7 +647,7 @@ class KubernetesWrapper(object):
         func_id = message['vnf_uuid']
 
         # Add the function to the ledger
-        self.add_function_to_ledger(message, corr_id, func_id, t.CNF_FUNCTION_REMOVE)
+        self.add_function_to_ledger(message, corr_id, func_id, t.CNF_FUNCTION_REMOVE, properties)
 
         if 'service_instance_id' not in message.keys():
             error = 'service_instance_id key not provided'
@@ -643,7 +671,7 @@ class KubernetesWrapper(object):
         # Start the chain of tasks
         self.start_next_task(func_id)
 
-        return self.functions[func_id]['schedule']
+        # return self.functions[func_id]['schedule']
 
     def service_remove(self, ch, method, properties, payload):
         """
@@ -822,10 +850,6 @@ class KubernetesWrapper(object):
                 cloudnative_deployment_units.append(cloudnative_deployment_unit)
         outg_message['vnfr']['cloudnative_deployment_units'] = cloudnative_deployment_units
         outg_message['vnfr']['name'] = function['vnfd']['name']
-
-        # if service['ports']:
-        #     outg_message['vnfr']['descriptor_reference'] = func_id
-
         outg_message['message'] = ""
         payload = yaml.dump(outg_message)
 
@@ -868,17 +892,17 @@ class KubernetesWrapper(object):
             LOG.info("FUNCTION WAS REMOVED")
 
         payload = yaml.dump(outg_message)
-
-        corr_id = str(uuid.uuid4())
-        self.functions[func_id]['act_corr_id'] = corr_id
-
+        topic = self.functions[func_id]['properties'].reply_to
+        corr_id = self.functions[func_id]['properties'].correlation_id
         msg = ": IA contacted for function removal."
         LOG.debug("Function {} {}".format(func_id, msg))
         LOG.debug("Payload of request: {}".format(payload))
         # Contact the IA
-        self.manoconn.notify(t.CNF_FUNCTION_REMOVE,
+        self.manoconn.notify(topic,
                              payload,
                              correlation_id=corr_id)
+        LOG.debug("Replayed function remove message to MANO: {}".format(payload))
+
 
     def remove_service(self, service_id):
         """
