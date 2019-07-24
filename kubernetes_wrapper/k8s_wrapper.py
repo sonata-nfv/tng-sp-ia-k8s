@@ -519,7 +519,7 @@ class KubernetesWrapperEngine(object):
             message = str(e)
         return message
     
-    def deployment_object(self, instance_uuid, cnf_yaml, service_uuid):
+    def deployment_object(self, instance_uuid, cnf_yaml, service_uuid, vim_uuid):
         """
         CNF modeling method. This build a deployment object in kubernetes
         instance_uuid: k8s deployment name
@@ -579,12 +579,12 @@ class KubernetesWrapperEngine(object):
                 if env_vars:
                     LOG.debug("Configmap: {}".format(config_map_id))
                     KubernetesWrapperEngine.create_configmap(self, config_map_id, instance_uuid, env_vars, service_uuid,
-                                                             namespace = "default")
+                                                             vim_uuid, namespace = "default")
                 else:
                     env_vars = {"sonata": "rules"}
                     LOG.debug("Configmap: {}".format(config_map_id))
                     KubernetesWrapperEngine.create_configmap(self, config_map_id, instance_uuid, env_vars, service_uuid, 
-                                                             namespace = "default")
+                                                             vim_uuid, namespace = "default")
                 env_from = client.V1EnvFromSource(config_map_ref = client.V1ConfigMapEnvSource(name = config_map_id, 
                                                   optional = False))
 
