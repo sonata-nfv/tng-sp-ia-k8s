@@ -215,7 +215,7 @@ class ManoBrokerConnection(object):
         #Make sure that consuming has started, before method finishes.
         time.sleep(0.1)
 
-        LOG.debug("SUBSCRIBED to {}", topic)
+        LOG.debug("SUBSCRIBED to {}".format(topic))
         return subscription_queue
 
     def done_with_task(self, f):
