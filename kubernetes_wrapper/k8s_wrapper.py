@@ -753,6 +753,7 @@ class KubernetesWrapperEngine(object):
         memory_used = 0 
         KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
         api = client.ApiClient()
+        LOG.info(str(api))
         try:
             response = api.call_api('/apis/metrics.k8s.io/v1beta1/nodes', 'GET', _return_http_data_only=True, response_type=str)
             jsonify_response = response.replace("'","\"")
