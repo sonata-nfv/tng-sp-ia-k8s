@@ -219,7 +219,7 @@ class ManoBasePlugin(object):
         """
         response = json.loads(str(response))
         if response.get("status") != "OK":
-            LOG.debug("Response %r" % response)
+            LOG.debug("Response %s" % response)
             LOG.error("Plugin registration failed. Exit.")
             exit(1)
         self.uuid = response.get("uuid")
