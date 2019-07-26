@@ -814,7 +814,7 @@ class KubernetesWrapper(object):
         replicas = 0
         function = self.functions[func_id]
         vim_uuid = function['vim_uuid']
-        instance, replicas = engine.KubernetesWrapperEngine.get_deployment_list(self, "descriptor_uuid={}".format(function['vnfd']['uuid']), function['vim_uuid'], 'default')
+        instance, replicas = engine.KubernetesWrapperEngine.get_deployment_list(self, "descriptor_uuid={}, service_uuid={}".format(function['vnfd']['uuid'], function['service_instance_id']), function['vim_uuid'], 'default')
         if instance:
             deployment, service = engine.KubernetesWrapperEngine.scale_instance(self, instance, replicas, vim_uuid, 'default', 'out')
         else:
