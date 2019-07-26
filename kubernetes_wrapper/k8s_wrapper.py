@@ -230,7 +230,7 @@ class KubernetesWrapperEngine(object):
                 LOG.error("Exception when calling V1ConfigMap->create_namespaced_config_map: %s\n" % e)
 
         LOG.debug("Configmap: {}".format(configmap))
-        LOG.info("CreatingConfigmapObject-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("K8sCreatingConfigmap-time: {} ms".format(int(round(time.time() - t0))* 1000))
         return configmap
 
     def overwrite_configmap(self, config_map_id, configmap, instance_uuid, env_vars, vim_uuid, namespace = "default"):
@@ -305,6 +305,7 @@ class KubernetesWrapperEngine(object):
         deployment: k8s deployment name
         namespace: Namespace where the deployment is deployed
         """
+        t0 = time.time()
         deployment = None
         KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
         k8s_beta = client.ExtensionsV1beta1Api()
@@ -314,7 +315,7 @@ class KubernetesWrapperEngine(object):
             LOG.debug("Deployment: {}".format(deployment))
         except ApiException as e:
             LOG.error("Exception when calling ExtensionsV1beta1Api->read_namespaced_deployment: %s\n" % e)
-        LOG.info("K8sGetDeploymen-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("K8sGetDeployment-time: {} ms".format(int(round(time.time() - t0))* 1000))
         return deployment
 
     def get_configmap(self, config_map_id, vim_uuid, namespace, watch=False, include_uninitialized=True, pretty='True' ):
