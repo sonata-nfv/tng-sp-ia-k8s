@@ -174,6 +174,18 @@ class KubernetesWrapperEngine(object):
                     LOG.info("K8S Cluster is not configured")
             time.sleep(10) 
 
+    def load_vim_config(self, vim_uuid):
+        """
+        Returns a kubernetes APIclient object for the initial configuration of the wrapper
+        """
+        vim_config = None
+        with open("/tmp/{}".format(vim_uuid), 'w') as f:
+            vim_config = self.get_vim_config(vim_uuid)
+            if vim_config is not None:
+                f.write(vim_config)
+        if vim_config is not None:
+            kube_config.load_kube_config(config_file="/tmp/{}".format(vim_uuid))
+
     def get_deployment_list(self, label, vim_uuid, namespace, watch=False, include_uninitialized=True, pretty='True' ):
         """
         CNF get deployment list method. This retrieve the list of deployments based on a label
@@ -182,7 +194,7 @@ class KubernetesWrapperEngine(object):
         """
         t0 = time.time()
         deployment_name = None
-        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
+        KubernetesWrapperEngine.load_vim_config(self, vim_uuid)
         k8s_beta = client.ExtensionsV1beta1Api()
         try: 
             deployment_name = k8s_beta.list_namespaced_deployment(namespace=namespace, label_selector=label)
@@ -196,7 +208,7 @@ class KubernetesWrapperEngine(object):
 
     def create_patch_deployment(self, deployment_name, vim_uuid, deployment_namespace):
         t0 = time.time()
-        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
+        KubernetesWrapperEngine.load_vim_config(self, vim_uuid)
         k8s_beta = client.ExtensionsV1beta1Api()
         patch = {"spec":{"template":{"metadata":{"annotations": {"updated_at": str(int(time.time()) * 1000)}}}}}
         try:
@@ -211,7 +223,7 @@ class KubernetesWrapperEngine(object):
         t0 = time.time()
         configuration = {}
         data = env_vars
-        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
+        KubernetesWrapperEngine.load_vim_config(self, vim_uuid)
         k8s_beta = client.CoreV1Api()
         metadata = client.V1ObjectMeta(name = config_map_id, namespace = namespace,
                                        labels = {"instance_uuid": instance_uuid, 
@@ -235,7 +247,7 @@ class KubernetesWrapperEngine(object):
 
     def overwrite_configmap(self, config_map_id, configmap, instance_uuid, env_vars, vim_uuid, namespace = "default"):
         t0 = time.time()
-        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
+        KubernetesWrapperEngine.load_vim_config(self, vim_uuid)
         k8s_beta = client.CoreV1Api()
         for x, y in env_vars.items():
             x = KubernetesWrapperEngine.normalize(self, str(x))
@@ -259,7 +271,7 @@ class KubernetesWrapperEngine(object):
         t0 = time.time()
         service = {}
         ports = None
-        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
+        KubernetesWrapperEngine.load_vim_config(self, vim_uuid)
         k8s_beta = client.ExtensionsV1beta1Api()
         client_k8s = client.CoreV1Api()
         if operation == "in":
@@ -307,7 +319,7 @@ class KubernetesWrapperEngine(object):
         """
         t0 = time.time()
         deployment = None
-        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
+        KubernetesWrapperEngine.load_vim_config(self, vim_uuid)
         k8s_beta = client.ExtensionsV1beta1Api()
         try:
             deployment = k8s_beta.read_namespaced_deployment(name=deployment_name, namespace=namespace, 
@@ -326,7 +338,7 @@ class KubernetesWrapperEngine(object):
         """
         t0 = time.time()
         configmap = None
-        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
+        KubernetesWrapperEngine.load_vim_config(self, vim_uuid)
         k8s_beta = client.CoreV1Api()
         try:
             configmap = k8s_beta.read_namespaced_config_map(name = config_map_id, namespace = namespace, 
@@ -347,7 +359,7 @@ class KubernetesWrapperEngine(object):
         reply = {}
         status = None
         message = None
-        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
+        KubernetesWrapperEngine.load_vim_config(self, vim_uuid)
         k8s_beta = client.ExtensionsV1beta1Api()
         resp = k8s_beta.create_namespaced_deployment(
                         body=deployment, namespace=namespace , async_req=False)
@@ -415,7 +427,7 @@ class KubernetesWrapperEngine(object):
         reply = {}
         status = None
         message = None
-        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
+        KubernetesWrapperEngine.load_vim_config(self, vim_uuid)
         k8s_beta = client.CoreV1Api()
         resp = k8s_beta.create_namespaced_service(
                         body=service, namespace=namespace , async_req=False)
@@ -467,7 +479,7 @@ class KubernetesWrapperEngine(object):
         reply = {}
         status = None
         message = None
-        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
+        KubernetesWrapperEngine.load_vim_config(self, vim_uuid)
         k8s_beta = client.ExtensionsV1beta1Api()
 
         LOG.debug("Deleting deployments")
@@ -706,7 +718,7 @@ class KubernetesWrapperEngine(object):
     def resource_object(self, vim_uuid):
         t0 = time.time()
         LOG.debug("vim uuid: {}".format(vim_uuid))
-        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
+        KubernetesWrapperEngine.load_vim_config(self, vim_uuid)
         api = client.CoreV1Api()
         nodes = api.list_node().to_dict()
         resources = []
@@ -752,7 +764,7 @@ class KubernetesWrapperEngine(object):
         t0 = time.time()
         cpu_used = 0
         memory_used = 0 
-        KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
+        KubernetesWrapperEngine.load_vim_config(self, vim_uuid)
         api = client.ApiClient()
         LOG.info(str(api))
         try:
