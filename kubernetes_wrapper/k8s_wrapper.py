@@ -165,7 +165,7 @@ class KubernetesWrapperEngine(object):
                 if len(vim_list) > 0:
                     vim_list = str(list(vim_list[0])[0])
                     with open("/tmp/{}".format(vim_list), 'w') as f:
-                        vim_config = self.get_vim_config(vim_list)
+                        vim_config = KubernetesWrapperEngine.get_vim_config(self, vim_list)
                         if vim_config is not None:
                             f.write(vim_config)
                     if vim_config is not None:
@@ -180,7 +180,7 @@ class KubernetesWrapperEngine(object):
         """
         vim_config = None
         with open("/tmp/{}".format(vim_uuid), 'w') as f:
-            vim_config = self.get_vim_config(vim_uuid)
+            vim_config = KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
             if vim_config is not None:
                 f.write(vim_config)
         if vim_config is not None:
@@ -204,7 +204,7 @@ class KubernetesWrapperEngine(object):
             return deployment_name.items[0].metadata.name, deployment_name.items[0].spec.replicas
         else:
             return None, 0
-        LOG.info("K8sGetDeploymentList-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("K8sGetDeploymentList-time: {} ms".format(int((time.time() - t0)* 1000)))
 
     def create_patch_deployment(self, deployment_name, vim_uuid, deployment_namespace):
         t0 = time.time()
@@ -216,7 +216,7 @@ class KubernetesWrapperEngine(object):
                                                          body=patch, pretty='true')
         except ApiException as e:
             LOG.error("Exception when calling ExtensionsV1beta1Api->:patch_namespaced_deployment %s\n" % e)
-        LOG.info("K8sCreatingPatch-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("K8sCreatingPatch-time: {} ms".format(int((time.time() - t0)* 1000)))
         return patch
 
     def create_configmap(self, config_map_id, instance_uuid, env_vars, service_uuid, vim_uuid, namespace = "default"):
@@ -242,7 +242,7 @@ class KubernetesWrapperEngine(object):
                 LOG.error("Exception when calling V1ConfigMap->create_namespaced_config_map: %s\n" % e)
 
         LOG.debug("Configmap: {}".format(configmap))
-        LOG.info("K8sCreatingConfigmap-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("K8sCreatingConfigmap-time: {} ms".format(int((time.time() - t0)* 1000)))
         return configmap
 
     def overwrite_configmap(self, config_map_id, configmap, instance_uuid, env_vars, vim_uuid, namespace = "default"):
@@ -259,7 +259,7 @@ class KubernetesWrapperEngine(object):
             LOG.debug("Configmap: {}".format(configmap_updated))
         except ApiException as e:
             LOG.error("Exception when calling V1ConfigMap->create_namespaced_config_map: %s\n" % e)
-        LOG.info("K8sOverwriteConfigmap-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("K8sOverwriteConfigmap-time: {} ms".format(int((time.time() - t0)* 1000)))
         return configmap_updated
 
     def scale_instance(self, deployment_name, replicas, vim_uuid, namespace, operation):
@@ -308,7 +308,7 @@ class KubernetesWrapperEngine(object):
             service['vnfr'] = resp
         except ApiException as e:
             LOG.error("Exception when calling ExtensionsV1beta1Api->read_namespaced_deployment: %s\n" % e)
-        LOG.info("ScaleInstance-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("ScaleInstance-time: {} ms".format(int((time.time() - t0)* 1000)))
         return deployment, service
 
     def get_deployment(self, deployment_name, vim_uuid, namespace, watch=False, include_uninitialized=True, pretty='True' ):
@@ -327,7 +327,7 @@ class KubernetesWrapperEngine(object):
             LOG.debug("Deployment: {}".format(deployment))
         except ApiException as e:
             LOG.error("Exception when calling ExtensionsV1beta1Api->read_namespaced_deployment: %s\n" % e)
-        LOG.info("K8sGetDeployment-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("K8sGetDeployment-time: {} ms".format(int((time.time() - t0)* 1000)))
         return deployment
 
     def get_configmap(self, config_map_id, vim_uuid, namespace, watch=False, include_uninitialized=True, pretty='True' ):
@@ -346,7 +346,7 @@ class KubernetesWrapperEngine(object):
             LOG.debug("Configmap: {}".format(configmap))
         except ApiException as e:
             LOG.error("Exception when calling ExtensionsV1beta1Api->read_namespaced_deployment: %s\n" % e)
-        LOG.info("K8sGetConfigmap-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("K8sGetConfigmap-time: {} ms".format(int((time.time() - t0)* 1000)))
         return configmap
 
     def create_deployment(self, deployment, vim_uuid, namespace, watch=False, include_uninitialized=True, pretty='True' ):
@@ -414,7 +414,7 @@ class KubernetesWrapperEngine(object):
         reply['request_status'] = status
         reply['ip_mapping'] = None
         reply['vnfr'] = resp.to_dict
-        LOG.info("K8sCreatingDeployment-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("K8sCreatingDeployment-time: {} ms".format(int((time.time() - t0)* 1000)))
         return reply
 
     def create_service(self, service, vim_uuid, namespace, watch=False, include_uninitialized=True, pretty='True' ):
@@ -466,7 +466,7 @@ class KubernetesWrapperEngine(object):
         if status:
             reply['ports'] = ports
         reply['vnfr'] = resp2
-        LOG.info("K8sCreatingService-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("K8sCreatingService-time: {} ms".format(int((time.time() - t0)* 1000)))
         return reply
    
     def remove_service(self, service_uuid, namespace, vim_uuid, watch=False, include_uninitialized=True, pretty='True'):
@@ -547,7 +547,7 @@ class KubernetesWrapperEngine(object):
             status = False
             message = str(e)
 
-        LOG.info("MainRemoveService-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("MainRemoveService-time: {} ms".format(int((time.time() - t0)* 1000)))
         return message
     
     def deployment_object(self, instance_uuid, cnf_yaml, service_uuid, vim_uuid):
@@ -664,7 +664,7 @@ class KubernetesWrapperEngine(object):
             kind="Deployment",
             metadata=client.V1ObjectMeta(name=deployment_label),
             spec=spec)
-        LOG.info("CreatingDeploymentObject-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("CreatingDeploymentObject-time: {} ms".format(int((time.time() - t0)* 1000)))
         return deployment_k8s
 
     def service_object(self, instance_uuid, cnf_yaml, deployment_selector, service_uuid):
@@ -712,7 +712,7 @@ class KubernetesWrapperEngine(object):
                                          labels = {"service_uuid": service_uuid,
                                                    "sp": "sonata"}),
             spec=spec)
-        LOG.info("CreatingServiceObject-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("CreatingServiceObject-time: {} ms".format(int((time.time() - t0)* 1000)))
         return service
 
     def resource_object(self, vim_uuid):
@@ -753,7 +753,7 @@ class KubernetesWrapperEngine(object):
                 resources.append(resource)
         # Response:
         # { resources: [{ node-name: k8s, core_total: 16, memory_total: 32724804, memory_allocatable: 32724804}] }
-        LOG.info("CreatingResourcesObject-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("K8sCreatingResourcesObject-time: {} ms".format(int((time.time() - t0)* 1000)))
         return resources
 
     def node_metrics_object(self, vim_uuid):
@@ -766,7 +766,6 @@ class KubernetesWrapperEngine(object):
         memory_used = 0 
         KubernetesWrapperEngine.load_vim_config(self, vim_uuid)
         api = client.ApiClient()
-        LOG.info(str(api))
         try:
             response = api.call_api('/apis/metrics.k8s.io/v1beta1/nodes', 'GET', _return_http_data_only=True, response_type=str)
             jsonify_response = response.replace("'","\"")
@@ -781,7 +780,7 @@ class KubernetesWrapperEngine(object):
             LOG.debug("CPU Used: {} Memory Used: {}".format(cpu_used, memory_used))
         except ApiException as e:
             LOG.error("Exception when calling /apis/metrics.k8s.io/v1beta1/nodes: GET {}".format(e))
-        LOG.info("MonitoringMetrics-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("K8sMonitoringMetrics-time: {} ms".format(int((time.time() - t0)* 1000)))
         return (cpu_used, memory_used)
 
 test = KubernetesWrapperEngine()

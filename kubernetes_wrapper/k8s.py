@@ -419,7 +419,7 @@ class KubernetesWrapper(object):
         self.manoconn.notify(properties.reply_to,
                              payload,
                              correlation_id=corr_id)
-        LOG.info("PrepareService-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("PrepareService-time: {} ms".format(int((time.time() - t0)* 1000)))
         LOG.debug("Replayed preparation message to MANO: {}".format(payload))
 
     def unprepare_service(self, ch, method, properties, payload):
@@ -445,7 +445,7 @@ class KubernetesWrapper(object):
         self.manoconn.notify(properties.reply_to,
                              payload,
                              correlation_id=corr_id)
-        LOG.info("UnprepareServicetime: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("UnprepareServicetime: {} ms".format(int((time.time() - t0)* 1000)))
         LOG.debug("Replayed preparation message to MANO: {}".format(payload))
 
     def configure_function(self, ch, method, properties, payload):
@@ -490,7 +490,7 @@ class KubernetesWrapper(object):
         self.manoconn.notify(properties.reply_to,
                              payload,
                              correlation_id=corr_id)
-        LOG.info("ConfigureFunction-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("ConfigureFunction-time: {} ms".format(int((time.time() - t0)* 1000)))
         LOG.debug("Replayed configuration message to MANO: {}".format(payload))
 
 
@@ -525,7 +525,7 @@ class KubernetesWrapper(object):
         
         # Start the chain of tasks
         self.start_next_task(func_id)
-        LOG.info("CreateFunction-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("CreateFunction-time: {} ms".format(int((time.time() - t0)* 1000)))
         return self.functions[func_id]['schedule']
 
     def function_list_resources(self, ch, method, properties, payload):
@@ -602,7 +602,7 @@ class KubernetesWrapper(object):
         self.manoconn.notify(properties.reply_to,
                              payload,
                              correlation_id=corr_id)
-        LOG.info("ListResource-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("ListResource-time: {} ms".format(int((time.time() - t0)* 1000)))
         LOG.debug("Replayed resources to MANO: {}".format(payload))
 
 
@@ -676,7 +676,7 @@ class KubernetesWrapper(object):
         self.functions[func_id]['schedule'].extend(add_schedule)
 
         msg = ": New kill request received."
-        LOG.info("RemoveFunction-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("RemoveFunction-time: {} ms".format(int((time.time() - t0)* 1000)))
         LOG.debug("Function {} {}".format(func_id, msg))
         # Start the chain of tasks
         self.start_next_task(func_id)
@@ -747,7 +747,7 @@ class KubernetesWrapper(object):
         msg = ": New kill request received."
         LOG.debug("Service {} {}".format(service_id,  msg))
         # Start the chain of tasks
-        LOG.info("RemoveService-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("RemoveService-time: {} ms".format(int((time.time() - t0)* 1000)))
         self.start_next_service_task(service_id)
 
     def no_resp_needed(self, ch, method, prop, payload):
@@ -874,7 +874,7 @@ class KubernetesWrapper(object):
         self.manoconn.notify(t.CNF_DEPLOY_RESPONSE,
                              payload,
                              correlation_id=corr_id)
-        LOG.info("DeployCNF-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("DeployCNF-time: {} ms".format(int((time.time() - t0)* 1000)))
         LOG.info("CNF WAS DEPLOYED CORRECTLY")
         # Pause the chain of tasks to wait for response
         self.functions[func_id]['pause_chain'] = True
@@ -915,7 +915,7 @@ class KubernetesWrapper(object):
         self.manoconn.notify(topic,
                              payload,
                              correlation_id=corr_id)
-        LOG.info("RemoveCNF-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("RemoveCNF-time: {} ms".format(int((time.time() - t0)* 1000)))
         LOG.debug("Replayed function remove message to MANO: {}".format(payload))
 
 
@@ -946,7 +946,7 @@ class KubernetesWrapper(object):
         self.manoconn.notify(topic,
                              payload,
                              correlation_id=corr_id)
-        LOG.info("RemoveService-time: {} ms".format(int(round(time.time() - t0))* 1000))
+        LOG.info("RemoveService-time: {} ms".format(int((time.time() - t0)* 1000)))
         LOG.debug("Replayed service remove message to MANO: {}".format(payload))
 
     def ia_remove_response(self, ch, method, prop, payload):
