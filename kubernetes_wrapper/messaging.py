@@ -137,7 +137,7 @@ class ManoBrokerConnection(object):
                                   routing_key=topic,
                                   exchange=self.rabbitmq_exchange,
                                   properties=default_properties)
-            LOG.debug("PUBLISHED to %r: %r", topic, message)
+            LOG.debug("PUBLISHED to {}: {}", topic, message)
 
     def subscribe(self, cbf, topic, subscription_queue=None):
         """
@@ -204,7 +204,7 @@ class ManoBrokerConnection(object):
         # to the same topic.
         if subscription_queue is None:
             queue_uuid = str(uuid.uuid4())
-            subscription_queue = "%s.%s.%s" % ("q", topic, queue_uuid)
+            subscription_queue = "{}.{}.{}".format("q", topic, queue_uuid)
         # each subscriber is an own thread
         LOG.debug("start new thread to consume " + str(subscription_queue))
         task = self.thrd_pool.submit(connection_thread)
@@ -215,7 +215,7 @@ class ManoBrokerConnection(object):
         #Make sure that consuming has started, before method finishes.
         time.sleep(0.1)
 
-        LOG.debug("SUBSCRIBED to %r", topic)
+        LOG.debug("SUBSCRIBED to {}".format(topic))
         return subscription_queue
 
     def done_with_task(self, f):
@@ -264,7 +264,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
                 cbf(ch, method, props, result)
 
         run(async_finish_cbf, func, ch, method, props, body)
-        LOG.debug("Async execution finished: %r." % str(func))
+        LOG.debug("Async execution finished: {}.".format(func))
 
     def _on_execute_async_finished(self, ch, method, props, result):
         """
@@ -317,7 +317,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
             if props.reply_to is None:
                 LOG.debug("Async request cbf: reply_to is None. Drop!")
                 return
-            LOG.debug("Async request on topic %r received." % method.routing_key)
+            LOG.debug("Async request on topic {} received.".format(method.routing_key))
             # call the user defined callback function (in a new thread to be async.
             self._execute_async(
                 self._on_execute_async_finished,  # function called after execution of cbf
@@ -339,7 +339,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
             if props.reply_to is not None:
                 LOG.debug("Notification cbf: reply_to is not None. Drop!")
                 return
-            LOG.debug("Notification on topic %r received." % method.routing_key)
+            LOG.debug("Notification on topic {} received.".format(method.routing_key))
             # call the user defined callback function (in a new thread to be async.
             self._execute_async(
                 None,
@@ -364,7 +364,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
             #LOG.debug("Non-response message dropped at response endpoint.")
             return
         if props.correlation_id in self._async_calls_pending.keys():
-            LOG.info("Async response received. Matches to corr_id: %r" % props.correlation_id)
+            LOG.info("Async response received. Matches to corr_id: {}".format(props.correlation_id))
             # call callback (in new thread)
             self._execute_async(None,
                                 self._async_calls_pending[props.correlation_id]['cbf'],
@@ -407,7 +407,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
 
             self.subscribed_topics[topic] = ''
             queue_uuid = str(uuid.uuid4())
-            subscription_queue = "%s.%s.%s" % ("q", topic, queue_uuid)
+            subscription_queue = "{}.{}.{}".format("q", topic, queue_uuid)
             self.subscribed_topics[topic] = subscription_queue
 
             self.subscribe(self._on_call_async_response_received, topic, subscription_queue)
@@ -444,7 +444,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         :return: None
         """
         self.subscribe(self._generate_cbf_call_async_rquest_received(cbf), topic)
-        LOG.debug("Registered async endpoint: topic: %r cbf: %r" % (topic, cbf))
+        LOG.debug("Registered async endpoint: topic: {} cbf: {}".format(topic, cbf))
 
     def notify(self, topic, msg=None, key="default",
                content_type="application/json",
@@ -546,5 +546,5 @@ def callback_print(self, ch, method, properties, msg):
         """
         Helper callback that prints the received message.
         """
-        LOG.debug("RECEIVED from %r on %r: %r" % (
+        LOG.debug("RECEIVED from {} on {}: {}".format(
             properties.app_id, method.routing_key, str(msg)))

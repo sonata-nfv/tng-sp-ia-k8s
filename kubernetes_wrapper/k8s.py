@@ -398,6 +398,7 @@ class KubernetesWrapper(object):
                              correlation_id=corr_id)
 
     def prepare_service(self, ch, method, properties, payload):
+        t0 = time.time()
         # Don't trigger on self created messages
         if self.name == properties.app_id:
             return 
@@ -418,9 +419,11 @@ class KubernetesWrapper(object):
         self.manoconn.notify(properties.reply_to,
                              payload,
                              correlation_id=corr_id)
+        LOG.info("PrepareService-time: {} ms".format(int((time.time() - t0)* 1000)))
         LOG.debug("Replayed preparation message to MANO: {}".format(payload))
 
     def unprepare_service(self, ch, method, properties, payload):
+        t0 = time.time()
         # Don't trigger on self created messages
         if self.name == properties.app_id:
             return 
@@ -442,9 +445,11 @@ class KubernetesWrapper(object):
         self.manoconn.notify(properties.reply_to,
                              payload,
                              correlation_id=corr_id)
+        LOG.info("UnprepareServicetime: {} ms".format(int((time.time() - t0)* 1000)))
         LOG.debug("Replayed preparation message to MANO: {}".format(payload))
 
     def configure_function(self, ch, method, properties, payload):
+        t0 = time.time()
         # Don't trigger on self created messages
         if self.name == properties.app_id:
             return 
@@ -485,6 +490,7 @@ class KubernetesWrapper(object):
         self.manoconn.notify(properties.reply_to,
                              payload,
                              correlation_id=corr_id)
+        LOG.info("ConfigureFunction-time: {} ms".format(int((time.time() - t0)* 1000)))
         LOG.debug("Replayed configuration message to MANO: {}".format(payload))
 
 
@@ -493,7 +499,7 @@ class KubernetesWrapper(object):
         This function handles a received message on the *.function.deploy
         topic.
         """
-
+        t0 = time.time()
         # Don't trigger on self created messages
         if self.name == properties.app_id:
             return
@@ -519,13 +525,14 @@ class KubernetesWrapper(object):
         
         # Start the chain of tasks
         self.start_next_task(func_id)
-
+        LOG.info("CreateFunction-time: {} ms".format(int((time.time() - t0)* 1000)))
         return self.functions[func_id]['schedule']
 
     def function_list_resources(self, ch, method, properties, payload):
         """
         This methods requests the list of cluster resources
         """
+        t0 = time.time()
         # Don't trigger on self created messages
         if self.name == properties.app_id:
             return
@@ -595,6 +602,7 @@ class KubernetesWrapper(object):
         self.manoconn.notify(properties.reply_to,
                              payload,
                              correlation_id=corr_id)
+        LOG.info("ListResource-time: {} ms".format(int((time.time() - t0)* 1000)))
         LOG.debug("Replayed resources to MANO: {}".format(payload))
 
 
@@ -602,6 +610,7 @@ class KubernetesWrapper(object):
         """
         This method starts the cnf remove workflow
         """
+        t0 = time.time()
         def send_error_response(error, func_id, scaling_type=None):
             # Extract the correlation id
             corr_id = properties.correlation_id
@@ -667,6 +676,7 @@ class KubernetesWrapper(object):
         self.functions[func_id]['schedule'].extend(add_schedule)
 
         msg = ": New kill request received."
+        LOG.info("RemoveFunction-time: {} ms".format(int((time.time() - t0)* 1000)))
         LOG.debug("Function {} {}".format(func_id, msg))
         # Start the chain of tasks
         self.start_next_task(func_id)
@@ -677,6 +687,7 @@ class KubernetesWrapper(object):
         """
         This method starts the cnf service remove workflow
         """
+        t0 = time.time()
         def send_error_response(error, service_id, scaling_type=None):
             # Extract the correlation id
             corr_id = properties.correlation_id
@@ -736,6 +747,7 @@ class KubernetesWrapper(object):
         msg = ": New kill request received."
         LOG.debug("Service {} {}".format(service_id,  msg))
         # Start the chain of tasks
+        LOG.info("RemoveService-time: {} ms".format(int((time.time() - t0)* 1000)))
         self.start_next_service_task(service_id)
 
     def no_resp_needed(self, ch, method, prop, payload):
@@ -798,10 +810,11 @@ class KubernetesWrapper(object):
         """
         This methods requests the deployment of a cnf
         """
+        t0 = time.time()
         replicas = 0
         function = self.functions[func_id]
         vim_uuid = function['vim_uuid']
-        instance, replicas = engine.KubernetesWrapperEngine.get_deployment_list(self, "descriptor_uuid={}".format(function['vnfd']['uuid']), function['vim_uuid'], 'default')
+        instance, replicas = engine.KubernetesWrapperEngine.get_deployment_list(self, "descriptor_uuid={}, service_uuid={}".format(function['vnfd']['uuid'], function['service_instance_id']), function['vim_uuid'], 'default')
         if instance:
             deployment, service = engine.KubernetesWrapperEngine.scale_instance(self, instance, replicas, vim_uuid, 'default', 'out')
         else:
@@ -861,7 +874,7 @@ class KubernetesWrapper(object):
         self.manoconn.notify(t.CNF_DEPLOY_RESPONSE,
                              payload,
                              correlation_id=corr_id)
-
+        LOG.info("DeployCNF-time: {} ms".format(int((time.time() - t0)* 1000)))
         LOG.info("CNF WAS DEPLOYED CORRECTLY")
         # Pause the chain of tasks to wait for response
         self.functions[func_id]['pause_chain'] = True
@@ -870,6 +883,7 @@ class KubernetesWrapper(object):
         """
         This method request the removal of a vnf
         """
+        t0 = time.time()
         replicas = 0
         function = self.functions[func_id]
         vim_uuid = function['vim_uuid']
@@ -901,6 +915,7 @@ class KubernetesWrapper(object):
         self.manoconn.notify(topic,
                              payload,
                              correlation_id=corr_id)
+        LOG.info("RemoveCNF-time: {} ms".format(int((time.time() - t0)* 1000)))
         LOG.debug("Replayed function remove message to MANO: {}".format(payload))
 
 
@@ -908,6 +923,7 @@ class KubernetesWrapper(object):
         """
         This method request the removal of service
         """
+        t0 = time.time()
         services = self.services[service_id]
         vim_uuid = services['vim_uuid']
         message = engine.KubernetesWrapperEngine.remove_service(self, service_id, "default", vim_uuid) 
@@ -930,6 +946,7 @@ class KubernetesWrapper(object):
         self.manoconn.notify(topic,
                              payload,
                              correlation_id=corr_id)
+        LOG.info("RemoveService-time: {} ms".format(int((time.time() - t0)* 1000)))
         LOG.debug("Replayed service remove message to MANO: {}".format(payload))
 
     def ia_remove_response(self, ch, method, prop, payload):
