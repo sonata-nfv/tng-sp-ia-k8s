@@ -705,6 +705,7 @@ class KubernetesWrapperEngine(object):
 
     def resource_object(self, vim_uuid):
         t0 = time.time()
+        LOG.debug("vim uuid: {}").format(vim_uuid)
         KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
         api = client.CoreV1Api()
         nodes = api.list_node().to_dict()
