@@ -461,7 +461,7 @@ class KubernetesWrapper(object):
         service_uuid = self.functions[instance_uuid]['service_instance_id']
         vim_uuid = payload_dict.get("vim_uuid")
         LOG.debug("payload_dict: {}".format(payload_dict))
-        deployment_name = engine.KubernetesWrapperEngine.get_deployment_list(self, "instance_uuid={}".format(instance_uuid), vim_uuid, "default")
+        deployment_name, replicas = engine.KubernetesWrapperEngine.get_deployment_list(self, "instance_uuid={}".format(instance_uuid), vim_uuid, "default")
         LOG.debug("DEPLOYMENT NAME: {}".format(deployment_name))
 
         deployment = engine.KubernetesWrapperEngine.get_deployment(self, deployment_name, vim_uuid, "default")
