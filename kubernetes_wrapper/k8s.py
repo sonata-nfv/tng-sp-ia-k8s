@@ -464,26 +464,30 @@ class KubernetesWrapper(object):
         deployment_name, replicas = engine.KubernetesWrapperEngine.get_deployment_list(self, "instance_uuid={}".format(instance_uuid), vim_uuid, "default")
         LOG.debug("DEPLOYMENT NAME: {}".format(deployment_name))
 
-        deployment = engine.KubernetesWrapperEngine.get_deployment(self, deployment_name, vim_uuid, "default")
-        LOG.debug("DEPLOYMENT CONFIGURATION: {}".format(deployment))
+        if deployment_name:
+            deployment = engine.KubernetesWrapperEngine.get_deployment(self, deployment_name, vim_uuid, "default")
+            LOG.debug("DEPLOYMENT CONFIGURATION: {}".format(deployment))
 
-        # Get CNF configmap
-        if payload_dict.get("envs"):
-            for env_vars in payload_dict["envs"]:
-                config_map_id = env_vars["cdu_id"]
-                if env_vars.get("envs"):
-                    configmap = engine.KubernetesWrapperEngine.get_configmap(self, config_map_id, vim_uuid, "default")
-                    LOG.debug("Configmap: {}".format(configmap))
-                    if configmap:
-                        engine.KubernetesWrapperEngine.overwrite_configmap(self, config_map_id, configmap, instance_uuid, env_vars["envs"], vim_uuid, "default")
-                    else:
-                        engine.KubernetesWrapperEngine.create_configmap(self, config_map_id, instance_uuid, env_vars["envs"], service_uuid, vim_uuid, 'default')
+            # Get CNF configmap
+            if payload_dict.get("envs"):
+                for env_vars in payload_dict["envs"]:
+                    config_map_id = env_vars["cdu_id"]
+                    if env_vars.get("envs"):
+                        configmap = engine.KubernetesWrapperEngine.get_configmap(self, config_map_id, vim_uuid, "default")
+                        LOG.debug("Configmap: {}".format(configmap))
+                        if configmap:
+                            engine.KubernetesWrapperEngine.overwrite_configmap(self, config_map_id, configmap, instance_uuid, env_vars["envs"], vim_uuid, "default")
+                        else:
+                            engine.KubernetesWrapperEngine.create_configmap(self, config_map_id, instance_uuid, env_vars["envs"], service_uuid, vim_uuid, 'default')
 
-        LOG.debug("Deployment name: {}".format(deployment_name))
-        LOG.debug("Deployment: {}".format(deployment))
-        # Trigger Rolling Update
-        patch = engine.KubernetesWrapperEngine.create_patch_deployment(self, deployment_name, vim_uuid, "default")
-        LOG.debug("PATCH: {}".format(patch))
+            LOG.debug("Deployment name: {}".format(deployment_name))
+            LOG.debug("Deployment: {}".format(deployment))
+            # Trigger Rolling Update
+            patch = engine.KubernetesWrapperEngine.create_patch_deployment(self, deployment_name, vim_uuid, "default")
+            LOG.debug("PATCH: {}".format(patch))
+        else:
+            LOG.debug("No deployment name so CNF was not updated")
+        
         payload = '{"request_status": "COMPLETED", "message": ""}'
 
         # Contact the IA
