@@ -640,7 +640,7 @@ class KubernetesWrapperEngine(object):
                     for volume_mounts_item in volume_mounts:
                         if volume_mounts_item.get('id') and volume_mounts_item.get('location'):
                             volumes = client.V1Volume(name=volume_mounts_item['id'], 
-                                                      empty_dir=client.V1EmptyDirVolumeSource(medium='', size_limit=10 ))
+                                                      empty_dir=client.V1EmptyDirVolumeSource(medium='' ))
                             if volumes not in pod_volume_list:
                                 pod_volume_list.append(volumes)
                             container_volume_mount = client.V1VolumeMount(name=volume_mounts_item['id'], mount_path=volume_mounts_item['location'] )
