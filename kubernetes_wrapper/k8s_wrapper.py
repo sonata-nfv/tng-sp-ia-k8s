@@ -559,11 +559,12 @@ class KubernetesWrapperEngine(object):
         t0 = time.time()
         LOG.debug("CNFD: {}".format(cnf_yaml))
         container_list = []
+        pod_volume_list = []
         deployment_k8s = None
         if "cloudnative_deployment_units" in cnf_yaml:
             cdu = cnf_yaml.get('cloudnative_deployment_units')
             for cdu_obj in cdu:
-                env_vars = env_from = cpu = memory = huge_pages = gpu = sr_iov = resources = None
+                env_vars = env_from = cpu = memory = huge_pages = gpu = sr_iov = resources = volume_mounts = None
                 port_list = []
                 environment = []
                 cdu_id = cdu_obj.get('id')
@@ -573,6 +574,7 @@ class KubernetesWrapperEngine(object):
                 config_map_id = cdu_id
                 if cdu_obj.get('parameters'):
                     env_vars = cdu_obj['parameters'].get('env')
+                    volume_mounts = cdu_obj['parameters'].get('volume_mounts')
                 if cdu_obj.get('resource_requirements'):
                     gpu = cdu_obj['resource_requirements'].get('gpu')
                     cpu = cdu_obj['resource_requirements'].get('cpu')
@@ -629,8 +631,22 @@ class KubernetesWrapperEngine(object):
                 environment.append(client.V1EnvVar(name="version", value=KubernetesWrapperEngine.normalize(self, cnf_yaml.get('version'))))
 
                 image_pull_policy = KubernetesWrapperEngine.check_connection(self)
+                
+                # Volume mounts
+                container_volume_mount_list = []
+                if volume_mounts:
+                    LOG.debug("volume mounts: {}".format(volume_mounts))
+                    # Create the specification of volumes
+                    for volume_mounts_item in volume_mounts:
+                        if volume_mounts_item.get('id') and volume_mounts_item.get('location'):
+                            volumes = client.V1Volume(name=volume_mounts_item['id'], 
+                                                      empty_dir=client.V1EmptyDirVolumeSource(medium='', size_limit=10 ))
+                            if volumes not in pod_volume_list:
+                                pod_volume_list.append(volumes)
+                            container_volume_mount = client.V1VolumeMount(name=volume_mounts_item['id'], mount_path=volume_mounts_item['location'] )
+                            container_volume_mount_list.append(container_volume_mount)
 
-                # Configureate Pod template cont ainer
+                # Configureate Pod template container
                 container = client.V1Container(
                     env = environment,
                     name = container_name,
@@ -638,11 +654,12 @@ class KubernetesWrapperEngine(object):
                     image = image,
                     image_pull_policy = image_pull_policy,
                     ports = port_list,
-                    env_from = [env_from])
+                    env_from = [env_from],
+                    volume_mounts = container_volume_mount_list)
                 container_list.append(container)
         else:
             return deployment_k8s
-        
+
         # Create and configurate a spec section
         deployment_label =  ("{}-{}-{}-{}".format(cnf_yaml.get("vendor"), cnf_yaml.get("name"), cnf_yaml.get("version"),
                              instance_uuid.split("-")[0])).replace(".", "-")
@@ -653,7 +670,8 @@ class KubernetesWrapperEngine(object):
                                                  'sp': "sonata",
                                                  'descriptor_uuid': cnf_yaml['uuid']} 
                                                  ),
-            spec=client.V1PodSpec(containers=container_list))
+            spec=client.V1PodSpec(containers=container_list, volumes=pod_volume_list))
+
         # Create the specification of deployment
         spec = client.ExtensionsV1beta1DeploymentSpec(
             replicas=1,
@@ -664,6 +682,7 @@ class KubernetesWrapperEngine(object):
             kind="Deployment",
             metadata=client.V1ObjectMeta(name=deployment_label),
             spec=spec)
+        LOG.info("Deployment object: {}".format(deployment_k8s))
         LOG.info("CreatingDeploymentObject-time: {} ms".format(int((time.time() - t0)* 1000)))
         return deployment_k8s
 
