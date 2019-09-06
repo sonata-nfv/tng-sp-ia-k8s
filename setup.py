@@ -66,10 +66,8 @@ setup(
     license='Apache 2.0',
 
     packages=find_packages(),
-    install_requires=['amqpstorm', 'pytest', 'PyYAML', 'requests', 'pycodestyle', 'kubernetes', 'psycopg2', 
-                      'coloredlogs', 'urllib3==1.24.2', 'importlib-metadata==0.20'],
-    setup_requires=['pytest-runner'],
-
+    install_requires=['amqpstorm', 'PyYAML', 'requests', 'pycodestyle', 'kubernetes', 'psycopg2', 
+                      'coloredlogs', 'urllib3==1.24.2'],
     # To provide executable scripts, use entry points in preference to the
     # "scripts" keyword. Entry points provide cross-platform support and allow
     # pip to create the appropriate form of executable for the target platform.
