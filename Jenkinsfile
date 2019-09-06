@@ -100,10 +100,10 @@ pipeline {
         stages {
             stage('Generating release') {
                 steps {
-                    sh 'docker tag registry.sonata-nfv.eu:5000/tng-api-gtw:latest registry.sonata-nfv.eu:5000/tng-api-gtw:v5.0'
-                    sh 'docker tag registry.sonata-nfv.eu:5000/tng-api-gtw:latest sonatanfv/tng-api-gtw:v5.0'
-                    sh 'docker push registry.sonata-nfv.eu:5000/tng-api-gtw:v5.0'
-                    sh 'docker push sonatanfv/tng-api-gtw:v5.0'
+                    sh 'docker tag registry.sonata-nfv.eu:5000/tng-sp-ia-k8s:latest registry.sonata-nfv.eu:5000/tng-sp-ia-k8s:v5.0'
+                    sh 'docker tag registry.sonata-nfv.eu:5000/tng-sp-ia-k8s:latest sonatanfv/tng-sp-ia-k8s:v5.0'
+                    sh 'docker push registry.sonata-nfv.eu:5000/tng-sp-ia-k8s:v5.0'
+                    sh 'docker push sonatanfv/tng-sp-ia-k8s:v5.0'
                 }
             }
             stage('Deploying in v5.0 servers') {
@@ -111,8 +111,7 @@ pipeline {
                     sh 'rm -rf tng-devops || true'
                     sh 'git clone https://github.com/sonata-nfv/tng-devops.git'
                     dir(path: 'tng-devops') {
-                    sh 'ansible-playbook roles/sp.yml -i environments -e "target=sta-sp-v5-0 component=gatekeeper"'
-                    sh 'ansible-playbook roles/vnv.yml -i environments -e "target=sta-vnv-v5-0 component=gatekeeper"'
+                    sh 'ansible-playbook roles/sp.yml -i environments -e "target=sta-sp-v5-0 component=tng-sp-ia-k8s"'
                     }
                 }
             }
