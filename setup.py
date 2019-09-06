@@ -66,7 +66,7 @@ setup(
     license='Apache 2.0',
 
     packages=find_packages(),
-    install_requires=['amqpstorm', 'importlib-metadata', 'pytest', 'PyYAML', 'requests', 'pycodestyle', 'kubernetes', 'psycopg2', 
+    install_requires=['amqpstorm', 'importlib-metadata==0.20', 'pytest', 'PyYAML', 'requests', 'pycodestyle', 'kubernetes', 'psycopg2', 
                       'coloredlogs', 'urllib3==1.24.2'],
     setup_requires=['pytest-runner'],
 
