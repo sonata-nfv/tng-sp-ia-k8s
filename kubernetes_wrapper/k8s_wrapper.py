@@ -695,6 +695,7 @@ class KubernetesWrapperEngine(object):
         """
         t0 = time.time()
         ports_services=[]
+        load_balancer_ip = None
         if cnf_yaml.get("connection_points"):
             for connection_points in cnf_yaml["connection_points"]:
                 port_id = connection_points["id"]
@@ -717,10 +718,15 @@ class KubernetesWrapperEngine(object):
                                                         port_service["target_port"] = cdu_cp["port"]
                                                         ports_services.append(port_service)               
         
+        if cnf_yaml.get('parameters'):
+            if cnf_yaml['parameters'].get('cnf_ip'):
+                load_balancer_ip = cnf_yaml['parameters']['cnf_ip']
+
         # Create the specification of service
         spec = client.V1ServiceSpec(
             ports=ports_services,
             selector={'deployment': deployment_selector},
+            load_balancer_ip=load_balancer_ip,
             type="LoadBalancer")
         # Instantiate the deployment object
         service = client.V1Service(
