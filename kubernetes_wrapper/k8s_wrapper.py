@@ -427,6 +427,7 @@ class KubernetesWrapperEngine(object):
         reply = {}
         status = None
         message = None
+        resp2 = None
         KubernetesWrapperEngine.load_vim_config(self, vim_uuid)
         k8s_beta = client.CoreV1Api()
         resp = k8s_beta.create_namespaced_service(
@@ -453,12 +454,15 @@ class KubernetesWrapperEngine(object):
         reply['request_status'] = status
         reply['ip_mapping'] = []
 
-        loadbalancerip = resp2.status.load_balancer.ingress[0].ip
-
-        LOG.debug("loadbalancerip: {}".format(loadbalancerip))
-        
-        internal_ip = resp2.spec.cluster_ip       
-        ports = resp2.spec.ports
+        if resp2:
+            loadbalancerip = resp2.status.load_balancer.ingress[0].ip
+            LOG.debug("loadbalancerip: {}".format(loadbalancerip))
+            internal_ip = resp2.spec.cluster_ip
+            ports = resp2.spec.ports
+        else:
+            loadbalancerip = None
+            internal_ip = None
+            ports = None
         
         mapping = { "internal_ip": internal_ip, "floating_ip": loadbalancerip }
         reply['ip_mapping'].append(mapping)
@@ -693,6 +697,11 @@ class KubernetesWrapperEngine(object):
         cnf_yaml: CNF Descriptor in yaml format
         deployment_selector: The deployment where the service will forward the traffic
         """
+        params = []
+        if cnf_yaml.get("cloudnative_deployment_units"):
+            for parameters in cnf_yaml["cloudnative_deployment_units"]:
+                if parameters.get("parameters"):
+                    params.append(parameters["parameters"])
         t0 = time.time()
         ports_services=[]
         load_balancer_ip = None
@@ -718,9 +727,11 @@ class KubernetesWrapperEngine(object):
                                                         port_service["target_port"] = cdu_cp["port"]
                                                         ports_services.append(port_service)               
         
-        if cnf_yaml.get('parameters'):
-            if cnf_yaml['parameters'].get('cnf_ip'):
-                load_balancer_ip = cnf_yaml['parameters']['cnf_ip']
+        if params:
+            for param in params:
+                if param.get("cnf_ip"):
+                    LOG.info("CNF_IP: {}".format(param['cnf_ip']))
+                    load_balancer_ip = param['cnf_ip']
 
         # Create the specification of service
         spec = client.V1ServiceSpec(
@@ -737,6 +748,7 @@ class KubernetesWrapperEngine(object):
                                          labels = {"service_uuid": service_uuid,
                                                    "sp": "sonata"}),
             spec=spec)
+        LOG.info("Service object: {}".format(str(service)))
         LOG.info("CreatingServiceObject-time: {} ms".format(int((time.time() - t0)* 1000)))
         return service
 
