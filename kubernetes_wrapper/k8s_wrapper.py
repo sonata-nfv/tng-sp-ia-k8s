@@ -195,27 +195,32 @@ class KubernetesWrapperEngine(object):
         t0 = time.time()
         deployment_name = None
         KubernetesWrapperEngine.load_vim_config(self, vim_uuid)
-        k8s_beta = client.ExtensionsV1beta1Api()
+        k8s_beta = client.AppsV1Api()
         try: 
             deployment_name = k8s_beta.list_namespaced_deployment(namespace=namespace, label_selector=label)
         except ApiException as e:
-            LOG.error("Exception when calling ExtensionsV1beta1Api->list_namespaced_deployment: %s\n" % e)
-        if deployment_name.items:
-            return deployment_name.items[0].metadata.name, deployment_name.items[0].spec.replicas
+            LOG.error("Exception when calling AppsV1Api->list_namespaced_deployment: %s\n" % e)
+        if deployment_name:
+            if deployment_name.items:
+                LOG.info("K8sGetDeploymentList-time: {} ms".format(int((time.time() - t0)* 1000)))
+                return deployment_name.items[0].metadata.name, deployment_name.items[0].spec.replicas
+            else:
+                LOG.info("K8sGetDeploymentList-time: {} ms".format(int((time.time() - t0)* 1000)))
+                return None, 0
         else:
+            LOG.info("K8sGetDeploymentList-time: {} ms".format(int((time.time() - t0)* 1000)))
             return None, 0
-        LOG.info("K8sGetDeploymentList-time: {} ms".format(int((time.time() - t0)* 1000)))
 
     def create_patch_deployment(self, deployment_name, vim_uuid, deployment_namespace):
         t0 = time.time()
         KubernetesWrapperEngine.load_vim_config(self, vim_uuid)
-        k8s_beta = client.ExtensionsV1beta1Api()
+        k8s_beta = client.AppsV1Api()
         patch = {"spec":{"template":{"metadata":{"annotations": {"updated_at": str(int(time.time()) * 1000)}}}}}
         try:
             patch = k8s_beta.patch_namespaced_deployment(name=deployment_name, namespace=deployment_namespace, 
                                                          body=patch, pretty='true')
         except ApiException as e:
-            LOG.error("Exception when calling ExtensionsV1beta1Api->:patch_namespaced_deployment %s\n" % e)
+            LOG.error("Exception when calling AppsV1Api->:patch_namespaced_deployment %s\n" % e)
         LOG.info("K8sCreatingPatch-time: {} ms".format(int((time.time() - t0)* 1000)))
         return patch
 
@@ -272,7 +277,7 @@ class KubernetesWrapperEngine(object):
         service = {}
         ports = None
         KubernetesWrapperEngine.load_vim_config(self, vim_uuid)
-        k8s_beta = client.ExtensionsV1beta1Api()
+        k8s_beta = client.AppsV1Api()
         client_k8s = client.CoreV1Api()
         if operation == "in":
             patch = {"spec":{"replicas": int(replicas) - 1}}
@@ -282,12 +287,12 @@ class KubernetesWrapperEngine(object):
             patch = k8s_beta.patch_namespaced_deployment_scale(name=deployment_name, namespace=namespace, 
                                                                body=patch, pretty='true')
         except ApiException as e:
-            LOG.error("Exception when calling ExtensionsV1beta1Api->:patch_namespaced_deployment %s\n" % e)
+            LOG.error("Exception when calling AppsV1Api->:patch_namespaced_deployment %s\n" % e)
         try:
             deployment = k8s_beta.read_namespaced_deployment(name=deployment_name, namespace=namespace, 
                                                              exact=False, export=False)
         except ApiException as e:
-            LOG.error("Exception when calling ExtensionsV1beta1Api->read_namespaced_deployment: %s\n" % e)
+            LOG.error("Exception when calling AppsV1Api->read_namespaced_deployment: %s\n" % e)
         try:
             resp = client_k8s.read_namespaced_service(name=deployment_name, namespace=namespace, 
                                                             exact=False, export=False)
@@ -307,7 +312,7 @@ class KubernetesWrapperEngine(object):
                 service['ports'] = ports
             service['vnfr'] = resp
         except ApiException as e:
-            LOG.error("Exception when calling ExtensionsV1beta1Api->read_namespaced_deployment: %s\n" % e)
+            LOG.error("Exception when calling AppsV1Api->read_namespaced_deployment: %s\n" % e)
         LOG.info("ScaleInstance-time: {} ms".format(int((time.time() - t0)* 1000)))
         return deployment, service
 
@@ -320,13 +325,13 @@ class KubernetesWrapperEngine(object):
         t0 = time.time()
         deployment = None
         KubernetesWrapperEngine.load_vim_config(self, vim_uuid)
-        k8s_beta = client.ExtensionsV1beta1Api()
+        k8s_beta = client.AppsV1Api()
         try:
             deployment = k8s_beta.read_namespaced_deployment(name=deployment_name, namespace=namespace, 
                                                              exact=False, export=False)
             LOG.debug("Deployment: {}".format(deployment))
         except ApiException as e:
-            LOG.error("Exception when calling ExtensionsV1beta1Api->read_namespaced_deployment: %s\n" % e)
+            LOG.error("Exception when calling AppsV1Api->read_namespaced_deployment: %s\n" % e)
         LOG.info("K8sGetDeployment-time: {} ms".format(int((time.time() - t0)* 1000)))
         return deployment
 
@@ -345,7 +350,7 @@ class KubernetesWrapperEngine(object):
                                                             exact=False, export=False)
             LOG.debug("Configmap: {}".format(configmap))
         except ApiException as e:
-            LOG.error("Exception when calling ExtensionsV1beta1Api->read_namespaced_deployment: %s\n" % e)
+            LOG.error("Exception when calling AppsV1Api->read_namespaced_deployment: %s\n" % e)
         LOG.info("K8sGetConfigmap-time: {} ms".format(int((time.time() - t0)* 1000)))
         return configmap
 
@@ -360,7 +365,7 @@ class KubernetesWrapperEngine(object):
         status = None
         message = None
         KubernetesWrapperEngine.load_vim_config(self, vim_uuid)
-        k8s_beta = client.ExtensionsV1beta1Api()
+        k8s_beta = client.AppsV1Api()
         resp = k8s_beta.create_namespaced_deployment(
                         body=deployment, namespace=namespace , async_req=False)
 
@@ -396,7 +401,7 @@ class KubernetesWrapperEngine(object):
                                 break
 
             except ApiException as e:
-                LOG.error("Exception when calling ExtensionsV1beta1Api->read_namespaced_deployment: %s\n" % e)
+                LOG.error("Exception when calling AppsV1Api->read_namespaced_deployment: %s\n" % e)
                 reply['message'] = e
                 reply['instanceName'] = str(resp.metadata.name)
                 reply['instanceVimUuid'] = "unknown"
@@ -445,7 +450,7 @@ class KubernetesWrapperEngine(object):
                 if resp2.status.load_balancer.ingress is not None:
                     break
             except ApiException as e:
-                LOG.error("Exception when calling ExtensionsV1beta1Api->read_namespaced_deployment: %s\n" % e)
+                LOG.error("Exception when calling CoreV1Api->read_namespaced_deployment: %s\n" % e)
             time.sleep(2)
 
         message = "COMPLETED"
@@ -484,17 +489,16 @@ class KubernetesWrapperEngine(object):
         status = None
         message = None
         KubernetesWrapperEngine.load_vim_config(self, vim_uuid)
-        k8s_beta = client.ExtensionsV1beta1Api()
+        k8s_beta = client.AppsV1Api()
 
         LOG.debug("Deleting deployments")
         # Delete deployment
         try: 
             resp = k8s_beta.list_namespaced_deployment(namespace, label_selector="service_uuid={}".format(service_uuid))
         except ApiException as e:
-            LOG.error("Exception when calling ExtensionsV1beta1Api->list_namespaced_deployment: {}".format(e))
+            LOG.error("Exception when calling AppsV1Api->list_namespaced_deployment: {}".format(e))
             status = False
             message = str(e)
-
         k8s_deployments = []
         for k8s_deployment_list in resp.items:
             k8s_deployments.append(k8s_deployment_list.metadata.name)
@@ -508,7 +512,7 @@ class KubernetesWrapperEngine(object):
             try:
                 resp = k8s_beta.delete_namespaced_deployment(k8s_deployment, namespace, body=body)
             except ApiException as e:
-                LOG.error("Exception when calling ExtensionsV1beta1Api->delete_namespaced_deployment: {}".format(e))
+                LOG.error("Exception when calling AppsV1Api->delete_namespaced_deployment: {}".format(e))
                 status = False
                 message = str(e)
 
@@ -643,8 +647,12 @@ class KubernetesWrapperEngine(object):
                     # Create the specification of volumes
                     for volume_mounts_item in volume_mounts:
                         if volume_mounts_item.get('id') and volume_mounts_item.get('location'):
-                            volumes = client.V1Volume(name=volume_mounts_item['id'], 
-                                                      empty_dir=client.V1EmptyDirVolumeSource(medium='' ))
+                            if volume_mounts_item.get('persistent'):
+                                volumes = client.V1Volume(name=volume_mounts_item['id'], 
+                                                          host_path=client.V1HostPathVolumeSource(path='/mnt/data', type='DirectoryOrCreate' ))
+                            else:
+                                volumes = client.V1Volume(name=volume_mounts_item['id'], 
+                                                          empty_dir=client.V1EmptyDirVolumeSource(medium='' ))
                             if volumes not in pod_volume_list:
                                 pod_volume_list.append(volumes)
                             container_volume_mount = client.V1VolumeMount(name=volume_mounts_item['id'], mount_path=volume_mounts_item['location'] )
@@ -676,16 +684,30 @@ class KubernetesWrapperEngine(object):
                                                  ),
             spec=client.V1PodSpec(containers=container_list, volumes=pod_volume_list))
 
+        selector=client.V1LabelSelector(match_labels={'deployment': deployment_label,
+                                                 'instance_uuid': cnf_yaml['instance_uuid'],
+                                                 'service_uuid': service_uuid,
+                                                 'sp': "sonata",
+                                                 'descriptor_uuid': cnf_yaml['uuid']} 
+                                                 )
+
         # Create the specification of deployment
-        spec = client.ExtensionsV1beta1DeploymentSpec(
+        spec = client.V1DeploymentSpec(
             replicas=1,
-            template=template)
+            template=template,
+            selector=selector)
         # Instantiate the deployment object
-        deployment_k8s = client.ExtensionsV1beta1Deployment(
-            api_version="extensions/v1beta1",
+        deployment_k8s = client.V1Deployment(
+            api_version="apps/v1",
             kind="Deployment",
-            metadata=client.V1ObjectMeta(name=deployment_label),
-            spec=spec)
+            metadata=client.V1ObjectMeta(name=deployment_label,
+                                         labels={'deployment': deployment_label,
+                                                 'instance_uuid': cnf_yaml['instance_uuid'],
+                                                 'service_uuid': service_uuid,
+                                                 'sp': "sonata",
+                                                 'descriptor_uuid': cnf_yaml['uuid']} 
+                                                 ),
+                                         spec=spec)
         LOG.info("Deployment object: {}".format(deployment_k8s))
         LOG.info("CreatingDeploymentObject-time: {} ms".format(int((time.time() - t0)* 1000)))
         return deployment_k8s
