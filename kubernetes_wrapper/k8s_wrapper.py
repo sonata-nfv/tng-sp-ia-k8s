@@ -575,6 +575,7 @@ class KubernetesWrapperEngine(object):
                 env_vars = env_from = cpu = memory = huge_pages = gpu = sr_iov = resources = volume_mounts = None
                 port_list = []
                 environment = []
+                capabilities_list = []
                 cdu_id = cdu_obj.get('id')
                 image = cdu_obj.get('image')
                 cdu_conex = cdu_obj.get('connection_points')
@@ -583,6 +584,9 @@ class KubernetesWrapperEngine(object):
                 if cdu_obj.get('parameters'):
                     env_vars = cdu_obj['parameters'].get('env')
                     volume_mounts = cdu_obj['parameters'].get('volume_mounts')
+                    capabilities_list = cdu_obj['parameters'].get('capabilities')
+                    if not isinstance(capabilities_list, list):
+                        capabilities_list = []
                 if cdu_obj.get('resource_requirements'):
                     gpu = cdu_obj['resource_requirements'].get('gpu')
                     cpu = cdu_obj['resource_requirements'].get('cpu')
@@ -658,6 +662,11 @@ class KubernetesWrapperEngine(object):
                             container_volume_mount = client.V1VolumeMount(name=volume_mounts_item['id'], mount_path=volume_mounts_item['location'] )
                             container_volume_mount_list.append(container_volume_mount)
 
+
+
+                LOG.debug("Security capabilities: {} applied to {}".format(capabilities_list, container_name))
+                sec_context = client.V1SecurityContext(capabilities=client.V1Capabilities(add=capabilities_list))
+
                 # Configureate Pod template container
                 container = client.V1Container(
                     env = environment,
@@ -667,7 +676,8 @@ class KubernetesWrapperEngine(object):
                     image_pull_policy = image_pull_policy,
                     ports = port_list,
                     env_from = [env_from],
-                    volume_mounts = container_volume_mount_list)
+                    volume_mounts = container_volume_mount_list,
+                    security_context=sec_context)
                 container_list.append(container)
         else:
             return deployment_k8s
