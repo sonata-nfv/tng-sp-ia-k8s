@@ -179,11 +179,14 @@ class KubernetesWrapperEngine(object):
         Returns a kubernetes APIclient object for the initial configuration of the wrapper
         """
         vim_config = None
-        with open("/tmp/{}".format(vim_uuid), 'w') as f:
-            vim_config = KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
+        if not os.path.isfile("/tmp/{}".format(vim_uuid)):
+            with open("/tmp/{}".format(vim_uuid), 'w') as f:
+                vim_config = KubernetesWrapperEngine.get_vim_config(self, vim_uuid)
+                if vim_config is not None:
+                    f.write(vim_config)
             if vim_config is not None:
-                f.write(vim_config)
-        if vim_config is not None:
+                kube_config.load_kube_config(config_file="/tmp/{}".format(vim_uuid))
+        else:
             kube_config.load_kube_config(config_file="/tmp/{}".format(vim_uuid))
 
     def get_deployment_list(self, label, vim_uuid, namespace, watch=False, include_uninitialized=True, pretty='True' ):

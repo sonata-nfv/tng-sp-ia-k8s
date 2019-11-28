@@ -407,14 +407,14 @@ class KubernetesWrapper(object):
         corr_id = properties.correlation_id
 
         payload_dict = yaml.load(payload)
-        instance_uuid = payload_dict.get("instance_id")
+        # instance_uuid = payload_dict.get("instance_id")
         # Write info to database
-        vim_list_k8s = engine.KubernetesWrapperEngine.get_vim_list(self)
+        # vim_list_k8s = engine.KubernetesWrapperEngine.get_vim_list(self)
 
-        for vim_list in payload_dict["vim_list"]:
-            if vim_list in vim_list_k8s:
-                vim_uuid = vim_list.get("uuid")
-                self.write_service_prep(instance_uuid, vim_uuid)
+        #for vim_list in payload_dict["vim_list"]:
+        #    if vim_list in vim_list_k8s:
+        #        vim_uuid = vim_list.get("uuid")
+        #        self.write_service_prep(instance_uuid, vim_uuid)
 
         payload = '{"request_status": "COMPLETED", "message": ""}'
 
