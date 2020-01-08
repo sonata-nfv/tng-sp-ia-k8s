@@ -572,6 +572,7 @@ class KubernetesWrapperEngine(object):
         container_list = []
         pod_volume_list = []
         deployment_k8s = None
+        privileged = False
         if "cloudnative_deployment_units" in cnf_yaml:
             cdu = cnf_yaml.get('cloudnative_deployment_units')
             for cdu_obj in cdu:
@@ -588,6 +589,8 @@ class KubernetesWrapperEngine(object):
                     env_vars = cdu_obj['parameters'].get('env')
                     volume_mounts = cdu_obj['parameters'].get('volume_mounts')
                     capabilities_list = cdu_obj['parameters'].get('capabilities')
+                    if cdu_obj['parameters'].get('privileged'):
+                        privileged = cdu_obj['parameters'].get('privileged')
                     if not isinstance(capabilities_list, list):
                         capabilities_list = []
                 if cdu_obj.get('resource_requirements'):
@@ -667,8 +670,8 @@ class KubernetesWrapperEngine(object):
 
 
 
-                LOG.debug("Security capabilities: {} applied to {}".format(capabilities_list, container_name))
-                sec_context = client.V1SecurityContext(capabilities=client.V1Capabilities(add=capabilities_list))
+                LOG.debug("Security capabilities: {}, privileged: {} applied to {}".format(capabilities_list, privileged, container_name))
+                sec_context = client.V1SecurityContext(privileged=privileged, capabilities=client.V1Capabilities(add=capabilities_list))
 
                 # Configureate Pod template container
                 container = client.V1Container(
