@@ -573,6 +573,8 @@ class KubernetesWrapperEngine(object):
         pod_volume_list = []
         deployment_k8s = None
         privileged = False
+        node_selector = {}
+        host_network = False
         if "cloudnative_deployment_units" in cnf_yaml:
             cdu = cnf_yaml.get('cloudnative_deployment_units')
             for cdu_obj in cdu:
@@ -591,8 +593,12 @@ class KubernetesWrapperEngine(object):
                     capabilities_list = cdu_obj['parameters'].get('capabilities')
                     if cdu_obj['parameters'].get('privileged'):
                         privileged = cdu_obj['parameters'].get('privileged')
+                    if cdu_obj['parameters'].get('host_network'):
+                        privileged = cdu_obj['parameters']['host_network']
                     if not isinstance(capabilities_list, list):
                         capabilities_list = []
+                    if cdu_obj['parameters'].get('node_selector'):
+                        node_selector = cdu_obj['parameters']['node_selector']
                 if cdu_obj.get('resource_requirements'):
                     gpu = cdu_obj['resource_requirements'].get('gpu')
                     cpu = cdu_obj['resource_requirements'].get('cpu')
@@ -698,7 +704,8 @@ class KubernetesWrapperEngine(object):
                                                  'sp': "sonata",
                                                  'descriptor_uuid': cnf_yaml['uuid']} 
                                                  ),
-            spec=client.V1PodSpec(containers=container_list, volumes=pod_volume_list))
+            spec=client.V1PodSpec(containers=container_list, volumes=pod_volume_list, node_selector=node_selector, 
+                                  host_network=host_network))
 
         selector=client.V1LabelSelector(match_labels={'deployment': deployment_label,
                                                  'instance_uuid': cnf_yaml['instance_uuid'],
