@@ -609,7 +609,10 @@ class KubernetesWrapperEngine(object):
                     for po in cdu_conex:
                         port = po.get('port')
                         port_name = po.get('id')
-                        port_list.append(client.V1ContainerPort(container_port = port, name = port_name))
+                        protocol = "TCP"
+                        if po.get("protocol"):
+                            protocol = po["protocol"]
+                        port_list.append(client.V1ContainerPort(container_port = port, name = port_name, protocol=protocol))
 
                 limits = {}
                 requests = {}
@@ -770,6 +773,8 @@ class KubernetesWrapperEngine(object):
                                                         port_service["name"] = port_id
                                                         port_service["port"] = port_number
                                                         port_service["target_port"] = cdu_cp["port"]
+                                                        if cdu_cp["protocol"]:
+                                                            port_service["protocol"] = cdu_cp["protocol"]
                                                         ports_services.append(port_service)               
         
         if params:
