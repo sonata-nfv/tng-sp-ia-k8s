@@ -773,7 +773,7 @@ class KubernetesWrapperEngine(object):
                                                         port_service["name"] = port_id
                                                         port_service["port"] = port_number
                                                         port_service["target_port"] = cdu_cp["port"]
-                                                        if cdu_cp["protocol"]:
+                                                        if cdu_cp.get("protocol"):
                                                             port_service["protocol"] = cdu_cp["protocol"]
                                                         ports_services.append(port_service)               
         
